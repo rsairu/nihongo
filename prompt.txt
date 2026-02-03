@@ -40,3 +40,21 @@ Output:
   - its standard Japanese reading in hiragana
 - Do not explain ignored words.
 - Do not include extra commentary.
+
+Flashcard Selection:
+- After processing all words, if there are multiple unknown words, select (up to) the top 3 words based on:
+  - Word frequency (頻度) in Japanese language usage
+  - Foundationalness to the language (core vocabulary, essential for communication)
+- Priority order:
+  1. High-frequency words that appear commonly in everyday Japanese
+  2. Foundational words that are essential building blocks for language learning
+  3. Words that combine both frequency and foundational importance
+
+Flashcard Output:
+- For each of the top 3 selected words, provide:
+  1. Word (in original kanji/kana form)
+  2. Reading (よみがな in hiragana)
+  3. Simple definition (concise, suitable for flashcards - 1-2 sentences max)
+  4. Example sentences (2-3 sentences showing natural usage)
+     - Use varied contexts to demonstrate different uses of the word
+- Format the flashcard output clearly, separating each word with a blank line
