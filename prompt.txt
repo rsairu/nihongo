@@ -1,6 +1,12 @@
 Task:
 Provide Japanese readings (よみがな) for words that are NOT present in known_words.json.
 
+Processing Steps:
+1. 写真の本文を 全文OCR（縦書き対応）
+   - Perform full OCR on photo text with vertical writing support
+2. 単語単位に分解
+   - Break down the text into word units
+
 Normalization:
 Apply all normalization steps before checking known_words.json.
 
