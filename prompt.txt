@@ -14,6 +14,7 @@ Normalization rules:
 - Ignore words written in katakana.
 - Reduce words to their dictionary (base) form.
   - Ignore conjugations, declensions, polite forms, and inflected variants.
+  - For サ変 verbs, normalize to the noun form.
 - Treat kanji and kana equivalents as the same word.
   - If a word exists in known_words.json in kanji form, ignore its kana-only form.
     Example:
@@ -26,19 +27,14 @@ Normalization rules:
     - 七年間 → 年間
     - 3回目 → 回目
     - 数ヶ月 → ヶ月
-- Ignore semantic suffixes.
-  - Strip common non-lexical suffixes indicating state, time, range, or completion.
-  - Re-evaluate the remaining word after stripping.
-    Examples:
-    - 使用中 → 使用
-    - 予定前 → 予定
-    - 作業済み → 作業
-    - 以上 / 以下 / 未満 → remove suffix only
+- Ignore ONLY non-lexical suffixes, e.g.; 中 / 前 / 後 / 済み / 以上 / 以下 / 未満
+  - These suffixes must NOT form an independent noun.
+  - Do NOT strip if the remaining word would lose core meaning.
 
 Evaluation:
-- After normalization, check the resulting word against known_words.json.
-- If the normalized word exists in known_words.json, ignore the original word.
-- Only process words that remain unknown after normalization.
+- After normalization, check against known_words.json.
+- If the normalized form exists, ignore it.
+- Otherwise, ALWAYS include the word, even if abstract or explanatory.
 
 Output:
 - For each valid word, output:
