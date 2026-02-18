@@ -42,6 +42,7 @@ Output:
   - its standard Japanese reading in hiragana
 - Do not explain ignored words.
 - Do not include extra commentary.
+- Completely omit katakana-only words from both the main list and any explanatory output. Do not mention them.
 
 Flashcard Selection:
 - After processing all words, if there are multiple unknown words, select (up to) the top 3 words based on:
