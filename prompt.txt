@@ -1,63 +1,36 @@
 Task:
-Provide Japanese readings (よみがな) for words that are NOT present in known_words.json.
+Provide Japanese readings (よみがな) for words NOT in known_words.json.
+CRITICAL: Exclude ALL words that exist in known_words.json (after normalization).
+CRITICAL: Include ALL kanji words that do NOT exist in known_words.json.
 
-Processing Steps:
-1. 写真の本文を 全文OCR（縦書き対応）
-   - Perform full OCR on photo text with vertical writing support
-2. 単語単位に分解
-   - Break down the text into word units
+Processing:
+1. Full OCR on photo text (vertical writing support)
+2. Break text into word units
 
-Normalization:
-Apply all normalization steps before checking known_words.json.
-
-Normalization rules:
-- Ignore words written in katakana.
-- Reduce words to their dictionary (base) form.
-  - Ignore conjugations, declensions, polite forms, and inflected variants.
-  - For サ変 verbs, normalize to the noun form.
-- Treat kanji and kana equivalents as the same word.
-  - If a word exists in known_words.json in kanji form, ignore its kana-only form.
-    Example:
-    - known_words.json contains: 出来る
-    - Ignore: できる
-- Ignore numeric prefixes.
-  - Strip leading numbers written in kanji or digits.
-  - Re-evaluate the remaining word after stripping.
-    Examples:
-    - 七年間 → 年間
-    - 3回目 → 回目
-    - 数ヶ月 → ヶ月
-- Ignore ONLY non-lexical suffixes, e.g.; 中 / 前 / 後 / 済み / 以上 / 以下 / 未満
-  - These suffixes must NOT form an independent noun.
-  - Do NOT strip if the remaining word would lose core meaning.
+Normalization (apply before checking known_words.json):
+- Ignore katakana-only words
+- Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
+- Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
+- Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
+- Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
 
 Evaluation:
-- After normalization, check against known_words.json.
-- If the normalized form exists, ignore it.
-- Otherwise, ALWAYS include the word, even if abstract or explanatory.
+- Check normalized form against known_words.json
+- CRITICAL: If normalized form exists in known_words.json → EXCLUDE (do NOT include)
+- CRITICAL: If normalized form does NOT exist → MUST include (even if abstract, even if kanji-only)
+- Do NOT ignore kanji words that are not in known_words.json
 
 Output:
-- For each valid word, output:
-  - the word
-  - its standard Japanese reading in hiragana
-- Do not explain ignored words.
-- Do not include extra commentary.
-- Completely omit katakana-only words from both the main list and any explanatory output. Do not mention them.
+- For each valid word: word + hiragana reading
+- NEVER include words present in known_words.json (after normalization)
+- Omit katakana words and all commentary
 
-Flashcard Selection:
-- After processing all words, if there are multiple unknown words, select (up to) the top 3 words based on:
-  - Word frequency (頻度) in Japanese language usage
-  - Foundationalness to the language (core vocabulary, essential for communication)
-- Priority order:
-  1. High-frequency words that appear commonly in everyday Japanese
-  2. Foundational words that are essential building blocks for language learning
-  3. Words that combine both frequency and foundational importance
+Flashcard Selection (top 2 if multiple unknown words):
+- Priority: high-frequency everyday words > foundational core vocabulary > both combined
 
-Flashcard Output:
-- For each of the top 3 selected words, provide:
-  1. Word (in original kanji/kana form)
-  2. Reading (よみがな in hiragana)
-  3. Simple definition (concise, suitable for flashcards - 1-2 sentences max)
-  4. Example sentences (2-3 sentences showing natural usage)
-     - Use varied contexts to demonstrate different uses of the word
-- Format the flashcard output clearly, separating each word with a blank line
+Flashcard Output (for top 3):
+1. Word (original form)
+2. Reading (hiragana)
+3. Simple definition in Japanese (1-2 sentences)
+4. Examples (2-3 sentences, varied contexts)
+- Separate each word with blank line
