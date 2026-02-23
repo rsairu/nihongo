@@ -22,13 +22,12 @@ Evaluation:
 
 Output:
 - For each valid word: word + hiragana reading
-- NEVER include words present in known_words.json (after normalization)
-- Omit katakana words and all commentary
+- Do NOT output words present in known_words.json, with or without notes
 
 Flashcard Selection (top 2 if multiple unknown words):
 - Priority: high-frequency everyday words > foundational core vocabulary > both combined
 
-Flashcard Output (for top 3):
+Flashcard Output (for top 2):
 1. Word (original form)
 2. Reading (hiragana)
 3. Simple definition in Japanese (1-2 sentences)
