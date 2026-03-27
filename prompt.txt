@@ -1,35 +1,45 @@
-Task:
-Provide Japanese readings (よみがな) for words NOT in known_words.json.
-CRITICAL: Exclude ALL words that exist in known_words.json (after normalization).
-CRITICAL: Include ALL kanji words that do NOT exist in known_words.json.
-
+Task: Provide Japanese readings (よみがな) for words NOT in known_words.json. CRITICAL: Exclude ALL words that exist in known_words.json (after normalization). CRITICAL: Include ALL kanji words that do NOT exist in known_words.json.
 Processing:
-1. Full OCR on photo text (vertical writing support)
-2. Break text into word units
+
+Full OCR on photo text (vertical writing support)
+Break text into word units
 
 Normalization (apply before checking known_words.json):
-- Ignore katakana-only words
-- Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
-- Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
-- Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
-- Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
+
+Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
+Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
+Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
+Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
+
+Katakana Filter (apply BEFORE output — this is a hard post-processing gate):
+
+After all other processing, scan every word in the output list
+Count each character: if ALL characters in the word are katakana (ァ-ン, ヴ, ー, ・), REMOVE it
+This filter runs last and overrides all other logic — no katakana-only word may appear in output under any circumstance
 
 Evaluation:
-- Check normalized form against known_words.json
-- CRITICAL: If normalized form exists in known_words.json → EXCLUDE (do NOT include)
-- CRITICAL: If normalized form does NOT exist → MUST include (even if abstract, even if kanji-only)
-- Do NOT ignore kanji words that are not in known_words.json
 
-Output:
-- For each valid word: word + hiragana reading
-- Do NOT output words present in known_words.json, with or without notes
+Check normalized form against known_words.json
+CRITICAL: If normalized form exists in known_words.json → EXCLUDE (do NOT include)
+CRITICAL: If normalized form does NOT exist → MUST include (even if abstract, even if kanji-only)
+Do NOT ignore kanji words that are not in known_words.json
 
-Flashcard Selection (top 2 if multiple unknown words):
-- Priority: high-frequency everyday words > foundational core vocabulary > both combined
+Output format — for each valid word, one line with three parts:
+Word｜ よみがな ｜ 簡単な意味（1文、日本語で）
 
-Flashcard Output (for top 2):
-1. Word (original form)
-2. Reading (hiragana)
-3. Simple definition in Japanese (1-2 sentences)
-4. Examples (2-3 sentences, varied contexts)
-- Separate each word with blank line
+NEVER include words present in known_words.json (after normalization)
+Omit katakana-only words and all commentary
+Do not add section headers or extra explanation
+
+Flashcard Selection (top 1 unknown words by priority):
+
+Priority: high-frequency everyday words > foundational core vocabulary > both combined
+
+Flashcard Output (for top 1):
+
+Word (original form)
+Reading (hiragana)
+Simple definition in Japanese (1–2 sentences)
+Examples (2–3 sentences, varied contexts)
+
+Separate each flashcard with a blank line.
