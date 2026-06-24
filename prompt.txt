@@ -30,7 +30,7 @@ Select the best words (2) for flashcard practice, per the following selection pr
 1. Foundational core vocabulary - Essential words needed to understand ordinary Japanese.
 2. High-frequency, high-value everyday word - Common words that appear often and improve comprehension immediately.
 3. High-value literary word - Words often found in books, essays, criticism, journalism, speeches, or educated prose.
-4. Cultivated vocabulary - Lower-frequency but worthwhile words that an intellectually curious, diligent reader would benefit from knowing.
+4. Cultivated vocabulary - Lower-frequency but worthwhile words that an intellectually curious, diligent reader would benefit from knowing. Exclude obscure or decorative words whose main value is sounding fancy.
 
 ## Output
 
