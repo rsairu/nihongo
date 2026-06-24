@@ -1,45 +1,51 @@
-Task: Provide Japanese readings (よみがな) for words NOT in known_words.json. CRITICAL: Exclude ALL words that exist in known_words.json (after normalization). CRITICAL: Include ALL kanji words that do NOT exist in known_words.json.
-Processing:
+## Task
 
-Full OCR on photo text (vertical writing support)
-Break text into word units
+Goal: Provide Japanese readings (よみがな) and definitions for words NOT in known_words.json.
 
-Normalization (apply before checking known_words.json):
+CRITICAL: Exclude ALL words that exist in known_words.json (after normalization).
 
-Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
-Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
-Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
-Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
+CRITICAL: Include ALL words that do NOT exist in known_words.json.
 
-Katakana Filter (apply BEFORE output — this is a hard post-processing gate):
+## Processing
 
-After all other processing, scan every word in the output list
-Count each character: if ALL characters in the word are katakana (ァ-ン, ヴ, ー, ・), REMOVE it
-This filter runs last and overrides all other logic — no katakana-only word may appear in output under any circumstance
+Do NOT output anything while processing.
 
-Evaluation:
+Perform a full OCR on photo text (vertical writing support) and then break text into word units.
+
+Before checking known_words.json, apply the following normalization:
+
+- Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
+- Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
+- Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
+- Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
+- Remove all katakana-only "loan" words
 
 Check normalized form against known_words.json
+
 CRITICAL: If normalized form exists in known_words.json → EXCLUDE (do NOT include)
 CRITICAL: If normalized form does NOT exist → MUST include (even if abstract, even if kanji-only)
-Do NOT ignore kanji words that are not in known_words.json
 
-Output format — for each valid word, one line with three parts:
+Select the best words (2) for flashcard practice, per the following selection priority:
+
+1. Foundational core vocabulary - Essential words needed to understand ordinary Japanese.
+2. High-frequency, high-value everyday word - Common words that appear often and improve comprehension immediately.
+3. High-value literary word - Words often found in books, essays, criticism, journalism, speeches, or educated prose.
+4. Cultivated vocabulary - Lower-frequency but worthwhile words that an intellectually curious, diligent reader would benefit from knowing.
+
+## Output
+
+ONLY produce output after processing.
+
+Do not add additional section headers or extra explanation.
+
+Provide new vocab and flashcards per the following output format:
+
+=== New vocab ===
+Format: for each valid word, one line with three parts:
 Word｜ よみがな ｜ 簡単な意味（1文、日本語で）
 
-NEVER include words present in known_words.json (after normalization)
-Omit katakana-only words and all commentary
-Do not add section headers or extra explanation
-
-Flashcard Selection (top 1 unknown words by priority):
-
-Priority: high-frequency everyday words > foundational core vocabulary > both combined
-
-Flashcard Output (for top 1):
-
+=== Flashcard ===
 Word (original form)
-Reading (hiragana)
-Simple definition in Japanese (1–2 sentences)
-Examples (2–3 sentences, varied contexts)
-
-Separate each flashcard with a blank line.
+読み方：Reading (hiragana)
+意味：Simple definition in Japanese (1–2 sentences)
+例文：Examples (2–3 sentences, varied contexts)
