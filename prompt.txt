@@ -2,43 +2,54 @@
 
 Goal: Provide Japanese readings (よみがな) and definitions for words NOT in known_words.json.
 
-CRITICAL: Exclude ALL words that exist in known_words.json (after normalization).
-
-CRITICAL: Include ALL words that do NOT exist in known_words.json.
-
 ## Processing
 
 Do NOT output anything while processing.
 
-Perform a full OCR on photo text (vertical writing support) and then break text into word units.
+Perform a full OCR on photo text (vertical writing support) and apply the following normalization:
 
-Before checking known_words.json, apply the following normalization:
+1. Identify idiomatic multi-word expressions and treat them as single lexical entries when their meaning is not predictable from the parts.
+Examples: 調子に乗る, 気にする, 気をつける, 仕方がない, 手に入れる, 役に立つ
 
-- Reduce to dictionary form (ignore conjugations, inflections; サ変 → noun form)
-- Treat kanji/kana equivalents as same (if 出来る in known_words.json, ignore できる)
-- Strip numeric prefixes (七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月)
-- Strip non-lexical suffixes only (中/前/後/済み/以上/以下/未満) if core meaning preserved
-- Remove all katakana-only "loan" words
+2. Reduce to dictionary form, ignoring conjugations and inflections. For サ変 verbs, normalize to the noun form unless the verb has a distinct lexicalized meaning.
+Examples: 食べた → 食べる, 高かった → 高い, 勉強した → 勉強, 確認している → 確認
+Exceptions may include: 無理する, 得する, 損する
 
-Check normalized form against known_words.json
+3. Treat known kanji/kana equivalents as the same, but do not merge words only because they share a reading.
+Examples: 出来る = できる, 分かる = わかる, 有る = ある, 無い = ない
+Do not merge: 会う / 合う / 遭う, 取る / 撮る / 採る
+
+4. Strip numeric prefixes from productive quantity/counter expressions only.
+Examples: 七年間 → 年間, 3回目 → 回目, 数ヶ月 → ヶ月, 二人分 → 人分
+Do not strip lexicalized forms: 一応, 一気に, 一生, 一人暮らし, 二度と
+
+5. Strip non-lexical suffixes only when the core meaning is preserved.
+Examples: 使用中 → 使用, 会議前 → 会議, 確認後 → 確認, 支払い済み → 支払い, 18歳以上 → 歳, 100円未満 → 円
+Do not strip lexicalized forms: 午前, 午後, 最中, 途中, 以前, 以後, 以上, 以下, 未満
+
+6. Remove obvious foreign loanword katakana, but keep native, Japanese-coined, mimetic, stylistic, or lexicalized katakana.
+Remove: タクシー, スマホ, コンビニ, アプリ, メール, テーブル, コーヒー, アップロード
+Keep: アテレコ, ツッコミ, ボケ, オタク, ワクワク, ドキドキ, マジ, ダメ, ムリ
+
+Then compare the resulting normalized lexical item against known_words.json.
 
 CRITICAL: If normalized form exists in known_words.json → EXCLUDE (do NOT include)
 CRITICAL: If normalized form does NOT exist → MUST include (even if abstract, even if kanji-only)
 
-Select the best words (2) for flashcard practice, per the following selection priority:
+## Output
+
+ONLY produce output after processing.
+
+Produce a list of new vocab for ALL WORDS that are NOT in known_words.json.
+
+Then, from the new vocab words, select the best words (2) for flashcard practice, per the following selection priority:
 
 1. Foundational core vocabulary - Essential words needed to understand ordinary Japanese.
 2. High-frequency, high-value everyday word - Common words that appear often and improve comprehension immediately.
 3. High-value literary word - Words often found in books, essays, criticism, journalism, speeches, or educated prose.
 4. Cultivated vocabulary - Lower-frequency but worthwhile words that an intellectually curious, diligent reader would benefit from knowing. Exclude obscure or decorative words whose main value is sounding fancy.
 
-## Output
-
-ONLY produce output after processing.
-
-Do not add additional section headers or extra explanation.
-
-Provide new vocab and flashcards per the following output format:
+Use the following output, without additional section headers or extra explanation:
 
 === New vocab ===
 Format: for each valid word, one line with three parts:
