@@ -49,11 +49,24 @@ Then, from the new vocab words, select the best words (2) for flashcard practice
 3. High-value literary word - Words often found in books, essays, criticism, journalism, speeches, or educated prose.
 4. Cultivated vocabulary - Lower-frequency but worthwhile words that an intellectually curious, diligent reader would benefit from knowing. Exclude obscure or decorative words whose main value is sounding fancy.
 
-Use the following output, without additional section headers or extra explanation:
+Use the following output, without additional section headers or extra explanation.
 
 === New vocab ===
-Format: for each valid word, one line with three parts:
-Word｜ よみがな ｜ 簡単な意味（1文、日本語で）
+
+Output the vocab list inside a single fenced code block so it can be copied directly into Vocab Clicker. Use this exact structure:
+
+```
+=== New vocab ===
+Word｜よみがな｜簡単な意味（1文、日本語で）
+Word｜よみがな｜簡単な意味（1文、日本語で）
+```
+
+Rules for the code block:
+- One word per line: Word｜よみがな｜簡単な意味（1文、日本語で）
+- Use fullwidth ｜ as the separator (ASCII | is also accepted)
+- Include the === New vocab === header as the first line inside the code block
+- No blank lines, bullets, numbering, or extra columns
+- Do not put readings or definitions on separate lines
 
 === Flashcard ===
 Word (original form)

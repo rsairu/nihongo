@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vocab Clicker</title>
+  <style>
+    :root {
+      --bg: #f6f4f0;
+      --surface: #fff;
+      --ink: #1a1a1a;
+      --muted: #5c5c5c;
+      --line: #d8d4cc;
+      --accent: #2a5a4a;
+      --accent-soft: #e4efe9;
+      --danger: #8b3a3a;
+      --radius: 8px;
+      --font: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font);
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse 80% 50% at 10% 0%, #ebe6dc 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, #e2ebe6 0%, transparent 50%),
+        var(--bg);
+      padding: 1.5rem clamp(1rem, 3vw, 2rem) 2.5rem;
+      line-height: 1.45;
+    }
+
+    main {
+      max-width: 42rem;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+
+    .hint {
+      margin: 0.25rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 1rem 1rem 1.1rem;
+    }
+
+    section h2 {
+      margin: 0 0 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    textarea {
+      width: 100%;
+      font: inherit;
+      color: var(--ink);
+      background: #faf9f7;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0.65rem 0.75rem;
+      resize: vertical;
+      min-height: 7rem;
+    }
+
+    textarea:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    #knownBox {
+      min-height: 4.5rem;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.65rem;
+    }
+
+    button {
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #f0eee9;
+      color: var(--ink);
+      padding: 0.45rem 0.9rem;
+    }
+
+    button:hover {
+      background: #e7e4dd;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover {
+      background: #234c3f;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    #error {
+      display: none;
+      margin-top: 0.6rem;
+      color: var(--danger);
+      font-size: 0.9rem;
+    }
+
+    #error.visible {
+      display: block;
+    }
+
+    #chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      min-height: 2.5rem;
+    }
+
+    #chips:empty::before {
+      content: "Parse a vocab list to see chips here.";
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .chip {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.15rem;
+      text-align: left;
+      max-width: 100%;
+      padding: 0.5rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #faf9f7;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+    }
+
+    .chip:hover {
+      border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+    }
+
+    .chip.selected {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .chip .word {
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .chip .meta {
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--muted);
+      line-height: 1.35;
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .chip.selected .meta {
+      color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+    }
+
+    #copyStatus {
+      margin: 0.5rem 0 0;
+      min-height: 1.2em;
+      font-size: 0.85rem;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Vocab Clicker</h1>
+      <p class="hint">Paste Claude’s New vocab output, click words you know, then Copy for your agent.</p>
+    </header>
+
+    <section aria-labelledby="input-heading">
+      <h2 id="input-heading">Paste</h2>
+      <textarea
+        id="pasteInput"
+        placeholder="=== New vocab ===&#10;態度｜たいど｜…&#10;友人｜ゆうじん｜…"
+        spellcheck="false"
+      ></textarea>
+      <div class="row">
+        <button type="button" class="primary" id="parseBtn">Parse</button>
+      </div>
+      <p id="error" role="alert"></p>
+    </section>
+
+    <section aria-labelledby="chips-heading">
+      <h2 id="chips-heading">Words</h2>
+      <div id="chips" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="known-heading">
+      <h2 id="known-heading">I know</h2>
+      <textarea id="knownBox" spellcheck="false" aria-label="Known words"></textarea>
+      <div class="row">
+        <button type="button" class="primary" id="copyBtn">Copy</button>
+        <button type="button" id="clearBtn">Clear</button>
+      </div>
+      <p id="copyStatus" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "nihongo-vocab-known";
+
+    const pasteInput = document.getElementById("pasteInput");
+    const parseBtn = document.getElementById("parseBtn");
+    const chipsEl = document.getElementById("chips");
+    const errorEl = document.getElementById("error");
+    const knownBox = document.getElementById("knownBox");
+    const copyBtn = document.getElementById("copyBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const copyStatus = document.getElementById("copyStatus");
+
+    /** @type {string[]} */
+    let knownOrder = [];
+    /** @type {Map<string, { word: string, reading: string, gloss: string }>} */
+    let parsedByWord = new Map();
+
+    function loadKnown() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        knownBox.value = raw;
+        knownOrder = parseKnownList(raw);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    function saveKnown() {
+      try {
+        localStorage.setItem(STORAGE_KEY, knownBox.value);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    function parseKnownList(text) {
+      return text
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    function syncKnownFromBox() {
+      knownOrder = parseKnownList(knownBox.value);
+      refreshChipSelectedState();
+      saveKnown();
+    }
+
+    function writeKnownBox() {
+      knownBox.value = knownOrder.join(", ");
+      saveKnown();
+      refreshChipSelectedState();
+    }
+
+    /**
+     * Parse Claude New vocab lines.
+     * Accepts fullwidth ｜ or ASCII |.
+     * @param {string} text
+     * @returns {{ word: string, reading: string, gloss: string }[]}
+     */
+    function parseVocab(text) {
+      const lines = text.split(/\r?\n/);
+      const items = [];
+      const seen = new Set();
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (/^===/.test(trimmed)) continue;
+        if (/^(読み方|意味|例文)[：:]/.test(trimmed)) continue;
+        if (/^Format:/i.test(trimmed)) continue;
+
+        const parts = trimmed.split(/\s*[｜|]\s*/);
+        if (parts.length < 2) continue;
+
+        const word = parts[0].trim();
+        if (!word) continue;
+        // Skip flashcard "Word (original form)" style lines with no pipe reading
+        // Already require >= 2 parts above.
+
+        if (seen.has(word)) continue;
+        seen.add(word);
+
+        items.push({
+          word,
+          reading: (parts[1] || "").trim(),
+          gloss: (parts.slice(2).join("｜") || "").trim(),
+        });
+      }
+
+      return items;
+    }
+
+    function setError(message) {
+      if (message) {
+        errorEl.textContent = message;
+        errorEl.classList.add("visible");
+      } else {
+        errorEl.textContent = "";
+        errorEl.classList.remove("visible");
+      }
+    }
+
+    function refreshChipSelectedState() {
+      const knownSet = new Set(knownOrder);
+      chipsEl.querySelectorAll(".chip").forEach((btn) => {
+        const word = btn.dataset.word;
+        btn.classList.toggle("selected", knownSet.has(word));
+        btn.setAttribute("aria-pressed", knownSet.has(word) ? "true" : "false");
+      });
+    }
+
+    function toggleKnown(word) {
+      const idx = knownOrder.indexOf(word);
+      if (idx === -1) {
+        knownOrder.push(word);
+      } else {
+        knownOrder.splice(idx, 1);
+      }
+      writeKnownBox();
+    }
+
+    function renderChips(items) {
+      chipsEl.replaceChildren();
+      parsedByWord = new Map(items.map((item) => [item.word, item]));
+
+      for (const item of items) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip";
+        btn.dataset.word = item.word;
+        btn.setAttribute("aria-pressed", "false");
+
+        const wordSpan = document.createElement("span");
+        wordSpan.className = "word";
+        wordSpan.textContent = item.word;
+        btn.appendChild(wordSpan);
+
+        const metaBits = [item.reading, item.gloss].filter(Boolean);
+        if (metaBits.length) {
+          const meta = document.createElement("span");
+          meta.className = "meta";
+          meta.textContent = metaBits.join(" · ");
+          btn.appendChild(meta);
+        }
+
+        btn.addEventListener("click", () => toggleKnown(item.word));
+        chipsEl.appendChild(btn);
+      }
+
+      refreshChipSelectedState();
+    }
+
+    function onParse() {
+      copyStatus.textContent = "";
+      const items = parseVocab(pasteInput.value);
+      if (items.length === 0) {
+        setError("No vocab lines found");
+        chipsEl.replaceChildren();
+        parsedByWord = new Map();
+        return;
+      }
+      setError("");
+      renderChips(items);
+    }
+
+    async function onCopy() {
+      const text = knownBox.value.trim();
+      if (!text) {
+        copyStatus.textContent = "Nothing to copy.";
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        copyStatus.textContent = "Copied.";
+      } catch (_) {
+        knownBox.focus();
+        knownBox.select();
+        copyStatus.textContent = "Clipboard blocked — select and copy manually.";
+      }
+    }
+
+    function onClear() {
+      knownOrder = [];
+      knownBox.value = "";
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (_) {
+        /* ignore */
+      }
+      refreshChipSelectedState();
+      copyStatus.textContent = "";
+    }
+
+    parseBtn.addEventListener("click", onParse);
+    copyBtn.addEventListener("click", onCopy);
+    clearBtn.addEventListener("click", onClear);
+    knownBox.addEventListener("input", syncKnownFromBox);
+
+    loadKnown();
+  </script>
+</body>
+</html>
