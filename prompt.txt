@@ -53,7 +53,7 @@ Use the following output, without additional section headers or extra explanatio
 
 === New vocab ===
 
-Output the vocab list inside a single fenced code block so it can be copied directly into Vocab Clicker. Use this exact structure:
+Output the vocab list inside a single fenced code block so it can be copied. Use this exact structure:
 
 ```
 === New vocab ===
