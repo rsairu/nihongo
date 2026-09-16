@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>語彙クリッカー</title>
+  <link rel="stylesheet" href="vocab_clicker.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>語彙クリッカー</h1>
+    <a class="about-link" href="#about" id="aboutLink">about</a>
+  </header>
+
+  <div class="workspace">
+    <div class="parse-col">
+      <div class="input-wrap">
+        <textarea id="input" placeholder="=== New vocab === の出力を貼り付けてください（単語｜よみがな｜簡単な意味）"></textarea>
+        <button id="inputActionBtn" class="minor" type="button">サンプルを使う</button>
+      </div>
+      <div class="actions">
+        <button id="parseBtn" type="button">解析</button>
+        <span id="status"></span>
+      </div>
+    </div>
+    <div class="lookup-box" data-mode="dict">
+      <div id="helperModes" role="tablist" aria-label="調べ方">
+        <button id="helperModeDict" class="helper-mode active" type="button" role="tab" aria-selected="true" aria-controls="helperDictBlock" data-mode="dict">辞書</button>
+        <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji">漢字表記</button>
+        <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence">例文</button>
+      </div>
+      <form id="helperForm" class="lookup-row">
+        <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" />
+        <button id="helperBtn" type="submit">調べる</button>
+      </form>
+      <div id="helperHistory">
+        <button id="helperScrollLeft" class="helper-scroll" type="button" aria-label="前の検索履歴">&lt;</button>
+        <div id="helperTabs" role="tablist" aria-label="最近の検索"></div>
+        <button id="helperScrollRight" class="helper-scroll" type="button" aria-label="次の検索履歴">&gt;</button>
+      </div>
+      <div id="helperResult">
+        <div id="helperWord"></div>
+        <div id="helperDictBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeDict">
+          <div id="helperKana" title="クリックでコピー"></div>
+          <div id="helperDef"></div>
+          <div id="helperEn"></div>
+          <button id="helperEnBtn" class="secondary" type="button">英訳を表示</button>
+        </div>
+        <div id="helperKanjiBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeKanji">
+          <div id="helperKanjiForm"></div>
+          <div class="kanji-usage">
+            <span id="helperKanjiMeter" class="kanji-meter" role="img"></span>
+            <span id="helperKanjiLabel"></span>
+          </div>
+          <div id="helperKanjiNote"></div>
+        </div>
+        <div id="helperSentenceBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeSentence">
+          <div id="helperSentence"></div>
+          <div id="helperSentenceEn"></div>
+          <div class="helper-sentence-actions">
+            <button id="helperSentenceEnBtn" class="secondary" type="button">英訳を表示</button>
+            <button id="helperSentenceRegenBtn" type="button">例文を作り直す</button>
+          </div>
+          <div id="helperSentencePrev"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="bubbles"></div>
+
+  <footer id="footer">
+    <div class="known-head">
+      <h2>既知の単語に追加</h2>
+      <button id="copyBtn" type="button" title="コピー" aria-label="既知の単語をコピー" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="8" y="8" width="12" height="12" rx="2"></rect>
+          <rect x="4" y="4" width="12" height="12" rx="2"></rect>
+        </svg>
+      </button>
+      <button id="clearBtn" class="secondary" type="button">選択を解除</button>
+      <button id="removeKnownBtn" class="minor" type="button" title="既知の単語を上のリストから除きます" disabled>リストから除く</button>
+      <pre id="csv" class="empty"></pre>
+    </div>
+  </footer>
+
+  <dialog id="about" aria-labelledby="aboutTitle">
+    <h2 id="aboutTitle">使い方</h2>
+    <p class="lede">エージェントの出力を貼り付けて解析し、単語のバブルを順に確認します。例文と意味の漢字をクリックまたは選択すると、読みと簡単な意味が表示されます。</p>
+    <div class="words-help" aria-label="単語バブルの操作">
+      <span><kbd>左クリック</kbd>既知にする</span>
+      <span><kbd>右クリック</kbd>例文</span>
+      <span><kbd>選択</kbd>調べる</span>
+      <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文へ</span>
+    </div>
+    <form method="dialog">
+      <button class="secondary" type="submit">閉じる</button>
+    </form>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="vocab_clicker.js"></script>
+</body>
+</html>
