@@ -197,12 +197,13 @@ button:disabled {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
+  height: 20rem;
   margin: 0;
   padding: 12px 14px;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 12px;
+  overflow: hidden;
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -245,6 +246,7 @@ button:disabled {
   flex-wrap: wrap;
   gap: 6px;
   margin: 0 0 10px;
+  flex-shrink: 0;
 }
 
 .helper-mode {
@@ -320,6 +322,7 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
   display: flex;
   gap: 8px;
   margin: 0;
+  flex-shrink: 0;
 }
 
 #helperInput {
@@ -344,6 +347,7 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
+  flex-shrink: 0;
 }
 
 #helperHistory.visible { display: grid; }
@@ -528,12 +532,15 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 #helperResult {
   display: none;
   margin-top: 10px;
+  flex: 1;
   min-height: 0;
-  max-height: 16rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-#helperResult.visible { display: block; }
+#helperResult.visible {
+  display: block;
+}
 
 #helperResult.error #helperKana,
 #helperResult.error #helperKanjiForm,
@@ -697,6 +704,10 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 @media (max-width: 720px) {
   .workspace {
     grid-template-columns: 1fr;
+  }
+
+  .lookup-box {
+    height: 18rem;
   }
 
   .known-head {

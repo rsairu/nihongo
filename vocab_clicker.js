@@ -119,17 +119,6 @@ function knownWordsInCurrentList() {
   return items.filter((it) => knownSet.has(it.word)).map((it) => it.word);
 }
 
-function loadKnown() {
-  try {
-    const raw = localStorage.getItem(KNOWN_STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) selected = parsed.filter((w) => typeof w === "string" && w);
-  } catch (_) {
-    /* ignore */
-  }
-}
-
 function saveKnown() {
   try {
     localStorage.setItem(KNOWN_STORAGE_KEY, JSON.stringify(selected));
@@ -1108,7 +1097,13 @@ function syncInputAction() {
 }
 
 function parseInput() {
-  items = parseVocab(inputEl.value);
+  const next = parseVocab(inputEl.value);
+  const prevWords = new Set(items.map((it) => it.word));
+  if (next.some((it) => !prevWords.has(it.word))) {
+    selected = [];
+    saveKnown();
+  }
+  items = next;
   renderBubbles();
   syncInputAction();
   if (!items.length && inputHasText()) {
@@ -1321,5 +1316,6 @@ document.addEventListener("mouseup", () => {
 });
 
 renderHelperModes();
-loadKnown();
+selected = [];
+saveKnown();
 renderBubbles();
