@@ -1,5 +1,10 @@
 const CLAUDE_MODEL = "claude-haiku-4-5";
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
+const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale";
+const FONT_SCALE_MIN = 0.8;
+const FONT_SCALE_MAX = 1.6;
+const FONT_SCALE_STEP = 0.1;
+const FONT_SCALE_DEFAULT = 1;
 
 const SAMPLE_VOCAB = `=== New vocab ===
 美味しい｜おいしい｜味がよくて、食べて気持ちがいいこと。
@@ -15,10 +20,15 @@ const aboutLink = document.getElementById("aboutLink");
 const aboutDialog = document.getElementById("about");
 const clearBtn = document.getElementById("clearBtn");
 const statusEl = document.getElementById("status");
+const knownFileBtn = document.getElementById("knownFileBtn");
+const knownFileInput = document.getElementById("knownFileInput");
 const bubblesEl = document.getElementById("bubbles");
 const csvEl = document.getElementById("csv");
 const copyBtn = document.getElementById("copyBtn");
 const removeKnownBtn = document.getElementById("removeKnownBtn");
+const fontDecBtn = document.getElementById("fontDecBtn");
+const fontIncBtn = document.getElementById("fontIncBtn");
+const fontResetBtn = document.getElementById("fontResetBtn");
 const helperForm = document.getElementById("helperForm");
 const helperInput = document.getElementById("helperInput");
 const helperBtn = document.getElementById("helperBtn");
@@ -45,11 +55,14 @@ const helperSentenceEn = document.getElementById("helperSentenceEn");
 const helperSentenceEnBtn = document.getElementById("helperSentenceEnBtn");
 const helperSentenceRegenBtn = document.getElementById("helperSentenceRegenBtn");
 const helperSentencePrev = document.getElementById("helperSentencePrev");
+const helperThesBlock = document.getElementById("helperThesBlock");
+const helperSimilar = document.getElementById("helperSimilar");
+const helperOpposite = document.getElementById("helperOpposite");
 const lookupBox = document.querySelector(".lookup-box");
 const HELPER_HISTORY_LIMIT = 10;
-const HELPER_MODES = ["dict", "kanji", "sentence"];
-const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文" };
-const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文" };
+const HELPER_MODES = ["dict", "kanji", "sentence", "thes"];
+const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語" };
+const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義" };
 const KANJI_USAGE_LABELS = ["なし", "まれ", "かな優先", "どちらも", "漢字優先"];
 const KANJI_METER_STEPS = 4;
 const VOCAB_DRAG_TYPE = "application/x-vocab-item";
@@ -58,12 +71,21 @@ const VOCAB_DRAG_TYPE = "application/x-vocab-item";
 let items = [];
 /** @type {string[]} first-select order */
 let selected = [];
+/** @type {Set<string> | null} normalized words from known_words.json; null until a file is loaded */
+let knownWordSet = null;
+/** @type {FileSystemFileHandle | null} */
+let knownFileHandle = null;
+let knownFileName = "";
+/** how many parsed words the last parse dropped as already known */
+let lastExcludedCount = 0;
 /** @type {Record<string, {ja: string, en: string}[]>} */
 const sentenceCache = {};
 /** @type {Record<string, {reading: string, ja: string, en: string}>} */
 const dictCache = {};
 /** @type {Record<string, {form: string, usage: number, label: string, preferred: string, note: string}>} */
 const kanjiCache = {};
+/** @type {Record<string, {similar: {word: string, reading: string, gloss: string}[], opposite: {word: string, reading: string, gloss: string}[]}>} */
+const thesCache = {};
 /** @type {AbortController | null} */
 let helperEnAbort = null;
 let helperEnRequestId = 0;
@@ -73,10 +95,10 @@ let helperEnShown = false;
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
-/** @type {"dict" | "kanji" | "sentence"} */
+/** @type {"dict" | "kanji" | "sentence" | "thes"} */
 let helperMode = "dict";
 let helperSentenceEnShown = false;
-/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object}[]} */
+/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object}[]} */
 let helperHistory = [];
 
 function extractNewVocabBlock(raw) {
@@ -147,7 +169,7 @@ function renderBubbles() {
     word.className = "word";
     word.textContent = item.word;
     word.draggable = true;
-    word.title = "辞書・漢字表記・例文へドラッグ";
+    word.title = "辞書・漢字表記・例文・類義語へドラッグ";
     word.addEventListener("dragstart", (e) => {
       e.dataTransfer.effectAllowed = "copy";
       e.dataTransfer.setData("text/plain", item.word);
@@ -189,7 +211,8 @@ function renderBubbles() {
     });
     bubblesEl.append(card);
   }
-  statusEl.textContent = items.length ? items.length + "語" : "";
+  const excludedNote = lastExcludedCount ? `既知${lastExcludedCount}語を除外` : "";
+  statusEl.textContent = [items.length ? items.length + "語" : "", excludedNote].filter(Boolean).join(" · ");
   renderCsv();
 }
 
@@ -352,6 +375,70 @@ function buildKanjiPrompt(query, context) {
   if (context && context.reading) lines.push("Reading: " + context.reading);
   if (context && context.meaning) lines.push("Meaning: " + context.meaning);
   return lines.join("\n");
+}
+
+function buildThesPrompt(query, context) {
+  const lines = [
+    "List close synonyms and antonyms for this Japanese word.",
+    "Same part of speech. Everyday learner vocabulary. Established pairs only; prefer なし over a weak match.",
+    "Output exactly 2 lines and nothing else:",
+    "類義: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
+    "対義: 単語｜よみ｜短い意味",
+    "3 to 6 synonyms. 0 to 4 antonyms. Use なし when a list is empty.",
+    "No quotes or extra commentary.",
+    "",
+    "Q: " + query
+  ];
+  if (context && context.reading) lines.push("Reading: " + context.reading);
+  if (context && context.meaning) lines.push("Meaning: " + context.meaning);
+  return lines.join("\n");
+}
+
+function isNoneList(value) {
+  return /^(なし|無し|none|n\/a|-|ー|―)$/i.test(String(value || "").trim());
+}
+
+function parseThesList(raw) {
+  const text = stripWrappingQuotes(raw).trim();
+  if (!text || isNoneList(text)) return [];
+  const items = [];
+  for (const part of text.split(/[;；]/)) {
+    const bits = part.split(/[｜|]/).map((p) => stripWrappingQuotes(p)).filter(Boolean);
+    if (!bits.length || isNoneList(bits[0])) continue;
+    if (!looksJapanese(bits[0])) continue;
+    items.push({
+      word: bits[0],
+      reading: bits[1] || "",
+      gloss: bits.slice(2).join("｜")
+    });
+  }
+  return items;
+}
+
+function parseThesResponse(raw) {
+  const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const pick = (re) => {
+    const match = text.match(re);
+    return match ? match[1].trim() : "";
+  };
+  let similarRaw = pick(/^\s*(?:類義語?|similar|synonyms?)\s*[:：]\s*(.+)$/im);
+  let oppositeRaw = pick(/^\s*(?:対義語?|antonyms?|opposite)\s*[:：]\s*(.+)$/im);
+  if (!similarRaw && !oppositeRaw) {
+    const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+    similarRaw = (lines[0] || "").replace(/^(?:類義語?|similar|synonyms?)\s*[:：]\s*/i, "");
+    oppositeRaw = (lines[1] || "").replace(/^(?:対義語?|antonyms?|opposite)\s*[:：]\s*/i, "");
+  }
+  if (!similarRaw && !oppositeRaw) throw new Error("empty");
+  const similar = parseThesList(similarRaw).slice(0, 6);
+  const opposite = parseThesList(oppositeRaw).slice(0, 4);
+  if (!similar.length && !opposite.length && !isNoneList(similarRaw) && !isNoneList(oppositeRaw)) {
+    throw new Error("empty");
+  }
+  return { similar, opposite };
+}
+
+async function fetchThesEntry(query, context, signal) {
+  return parseThesResponse(await requestClaudeText(buildThesPrompt(query, context), 280, signal));
 }
 
 function apiKey() {
@@ -589,7 +676,8 @@ function createHelperItem(query, context) {
     usedModes: [],
     dict: createModeState(),
     kanji: createModeState(),
-    sentence: createModeState()
+    sentence: createModeState(),
+    thes: createModeState()
   };
 }
 
@@ -598,6 +686,10 @@ function modeState(item, mode) {
   if (mode === "sentence") {
     if (!item.sentence) item.sentence = createModeState();
     return item.sentence;
+  }
+  if (mode === "thes") {
+    if (!item.thes) item.thes = createModeState();
+    return item.thes;
   }
   return item.dict;
 }
@@ -630,12 +722,14 @@ function cachedModeEntry(mode, query) {
     const sentences = sentenceCache[query];
     return sentences && sentences.length ? { sentences, index: sentences.length - 1 } : null;
   }
+  if (mode === "thes") return thesCache[query];
   return dictCache[dictCacheKey(query, "")];
 }
 
 function cacheModeEntry(mode, query, entry) {
   if (mode === "kanji") kanjiCache[query] = entry;
   else if (mode === "sentence") sentenceCache[query] = (entry && entry.sentences) || [];
+  else if (mode === "thes") thesCache[query] = entry;
   else dictCache[dictCacheKey(query, "")] = entry;
 }
 
@@ -798,6 +892,73 @@ function renderSentenceEntry(entry, enShown, loading) {
   renderSentencePrev(entry);
 }
 
+function renderThesList(container, words) {
+  container.replaceChildren();
+  if (!words.length) {
+    const empty = document.createElement("span");
+    empty.className = "thes-empty";
+    empty.textContent = "なし";
+    container.append(empty);
+    return;
+  }
+  for (const entry of words) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "thes-chip";
+    const word = document.createElement("span");
+    word.className = "thes-word";
+    word.textContent = entry.word;
+    btn.append(word);
+    if (entry.reading) {
+      const reading = document.createElement("span");
+      reading.className = "thes-reading";
+      reading.textContent = entry.reading;
+      btn.append(reading);
+    }
+    if (entry.gloss) {
+      const gloss = document.createElement("span");
+      gloss.className = "thes-gloss";
+      gloss.textContent = entry.gloss;
+      btn.append(gloss);
+    }
+    const title = [entry.reading, entry.gloss].filter(Boolean).join(" ");
+    if (title) btn.title = title;
+    btn.addEventListener("click", () => {
+      helperLookup(entry.word, {
+        mode: "thes",
+        context: { reading: entry.reading || "", meaning: entry.gloss || "" }
+      });
+    });
+    container.append(btn);
+  }
+}
+
+function renderThesPending(text) {
+  helperResult.classList.remove("error");
+  helperOpposite.replaceChildren();
+  helperSimilar.replaceChildren();
+  const note = document.createElement("span");
+  note.className = "thes-empty";
+  note.textContent = text;
+  helperSimilar.append(note);
+}
+
+function renderThesError(message) {
+  helperResult.classList.add("error");
+  helperOpposite.replaceChildren();
+  helperSimilar.replaceChildren();
+  const note = document.createElement("span");
+  note.className = "thes-empty";
+  note.textContent = message;
+  helperSimilar.append(note);
+}
+
+function renderThesEntry(entry) {
+  helperResult.classList.remove("error");
+  renderThesList(helperSimilar, (entry && entry.similar) || []);
+  renderThesList(helperOpposite, (entry && entry.opposite) || []);
+}
+
 function renderHelperModes() {
   lookupBox.dataset.mode = helperMode;
   for (const btn of helperModes.querySelectorAll(".helper-mode")) {
@@ -815,6 +976,7 @@ function paintHelperItem(item) {
   helperDictBlock.classList.toggle("visible", helperMode === "dict");
   helperKanjiBlock.classList.toggle("visible", helperMode === "kanji");
   helperSentenceBlock.classList.toggle("visible", helperMode === "sentence");
+  helperThesBlock.classList.toggle("visible", helperMode === "thes");
   renderHelperModes();
 
   const st = modeState(item, helperMode);
@@ -827,6 +989,10 @@ function paintHelperItem(item) {
     if (st.error) renderKanjiError(st.error);
     else if (st.entry) renderKanjiEntry(st.entry);
     else renderKanjiPending("…");
+  } else if (helperMode === "thes") {
+    if (st.error) renderThesError(st.error);
+    else if (st.entry) renderThesEntry(st.entry);
+    else renderThesPending("…");
   } else if (st.error) {
     renderSentenceError(st.error);
   } else if (st.entry) {
@@ -908,6 +1074,8 @@ async function runHelperFetch(item, mode, options) {
       parsed = await fetchKanjiUsage(item.query, item.context, controller.signal);
     } else if (mode === "sentence") {
       parsed = await fetchSentenceEntry(item.query, item.context, sentenceCache[item.query] || [], controller.signal);
+    } else if (mode === "thes") {
+      parsed = await fetchThesEntry(item.query, item.context, controller.signal);
     } else {
       parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal);
     }
@@ -918,6 +1086,7 @@ async function runHelperFetch(item, mode, options) {
     const message =
       mode === "kanji" ? "漢字表記を読み込めませんでした"
       : mode === "sentence" ? "例文を読み込めませんでした"
+      : mode === "thes" ? "類義語を読み込めませんでした"
       : "読み込めませんでした";
     if (keepSentence) {
       finishHelperFetch(item, mode, fetchId, st.entry, "");
@@ -1096,8 +1265,11 @@ function syncInputAction() {
   inputActionBtn.textContent = filled ? "クリア" : "サンプルを使う";
 }
 
-function parseInput() {
-  const next = parseVocab(inputEl.value);
+async function parseInput() {
+  await refreshKnownWords();
+  const parsed = parseVocab(inputEl.value);
+  const next = knownWordSet ? parsed.filter((it) => !knownWordSet.has(normalizeWord(it.word))) : parsed;
+  lastExcludedCount = parsed.length - next.length;
   const prevWords = new Set(items.map((it) => it.word));
   if (next.some((it) => !prevWords.has(it.word))) {
     selected = [];
@@ -1106,8 +1278,165 @@ function parseInput() {
   items = next;
   renderBubbles();
   syncInputAction();
-  if (!items.length && inputHasText()) {
+  if (!items.length && lastExcludedCount) {
+    statusEl.textContent = `すべて既知の単語でした（${lastExcludedCount}語を除外）`;
+  } else if (!items.length && inputHasText()) {
     statusEl.textContent = "単語の行が見つかりませんでした。";
+  }
+}
+
+/* ---------------- known_words.json: strict, local dedupe (no API calls) ---------------- */
+
+const KNOWN_IDB_NAME = "vocab-clicker";
+const KNOWN_IDB_STORE = "handles";
+const KNOWN_IDB_HANDLE_KEY = "known-words";
+const knownFsSupported = typeof window.showOpenFilePicker === "function";
+
+// Exact match only; NFKC just folds full-/half-width variants and stray spaces.
+function normalizeWord(word) {
+  return String(word).normalize("NFKC").replace(/\s+/g, "");
+}
+
+function parseKnownWordsJson(text) {
+  if (!text.trim()) return new Set();
+  const data = JSON.parse(text);
+  const list = Array.isArray(data) ? data : data && data.known_words;
+  if (!Array.isArray(list)) throw new Error("known_words の配列が見つかりません");
+  return new Set(list.filter((w) => typeof w === "string").map(normalizeWord).filter(Boolean));
+}
+
+function knownIdb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(KNOWN_IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(KNOWN_IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function knownIdbGet(key) {
+  const db = await knownIdb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(KNOWN_IDB_STORE).objectStore(KNOWN_IDB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function knownIdbSet(key, value) {
+  const db = await knownIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(KNOWN_IDB_STORE, "readwrite");
+    tx.objectStore(KNOWN_IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function renderKnownFileBtn(state) {
+  knownFileBtn.classList.toggle("known-linked", state === "linked");
+  knownFileBtn.classList.toggle("known-error", state === "error");
+  if (state === "linked" && knownWordSet) {
+    knownFileBtn.textContent = `既知リスト ${knownWordSet.size}語`;
+    knownFileBtn.title = `${knownFileName} — 完全一致する単語を除外中。クリックで別のファイルを選択`;
+  } else if (state === "reconnect") {
+    knownFileBtn.textContent = `${knownFileName} に再接続`;
+    knownFileBtn.title = "ブラウザの許可が必要です";
+  } else if (state === "error") {
+    knownFileBtn.textContent = "known_words.json を読めません";
+  } else {
+    knownFileBtn.textContent = "known_words.json を開く";
+    knownFileBtn.title = "このファイルにある単語は解析結果から除かれます";
+  }
+}
+
+async function readKnownHandle(handle) {
+  const text = await (await handle.getFile()).text();
+  knownWordSet = parseKnownWordsJson(text);
+  knownFileName = handle.name;
+  renderKnownFileBtn("linked");
+}
+
+// Re-read the linked file before each parse so edits to known_words.json are picked up.
+// If that fails, the last successfully loaded list stays in use.
+async function refreshKnownWords() {
+  if (!knownFileHandle) return;
+  try {
+    if ((await knownFileHandle.queryPermission({ mode: "read" })) !== "granted") return;
+    await readKnownHandle(knownFileHandle);
+  } catch (err) {
+    console.warn("known_words.json re-read failed", err);
+    if (!knownWordSet) renderKnownFileBtn("error");
+  }
+}
+
+async function afterKnownLoaded() {
+  if (inputHasText()) await parseInput();
+}
+
+async function openKnownFile() {
+  if (!knownFsSupported) {
+    knownFileInput.value = "";
+    knownFileInput.click();
+    return;
+  }
+  try {
+    if (knownFileHandle && !knownWordSet) {
+      const perm = await knownFileHandle.requestPermission({ mode: "read" });
+      if (perm === "granted") {
+        await readKnownHandle(knownFileHandle);
+        await afterKnownLoaded();
+        return;
+      }
+    }
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      excludeAcceptAllOption: false,
+    });
+    knownFileHandle = handle;
+    await readKnownHandle(handle);
+    try {
+      await knownIdbSet(KNOWN_IDB_HANDLE_KEY, handle);
+    } catch (_) {
+      /* handle just won't be remembered next time */
+    }
+    await afterKnownLoaded();
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+    renderKnownFileBtn("error");
+    statusEl.textContent = `known_words.json を読めませんでした: ${err.message || err}`;
+  }
+}
+
+// Fallback for browsers without the File System Access API: one-off load for this visit.
+async function loadKnownFromInput() {
+  const file = knownFileInput.files && knownFileInput.files[0];
+  if (!file) return;
+  try {
+    knownWordSet = parseKnownWordsJson(await file.text());
+    knownFileName = file.name;
+    renderKnownFileBtn("linked");
+    await afterKnownLoaded();
+  } catch (err) {
+    renderKnownFileBtn("error");
+    statusEl.textContent = `known_words.json を読めませんでした: ${err.message || err}`;
+  }
+}
+
+async function restoreKnownFile() {
+  if (!knownFsSupported) return;
+  try {
+    const handle = await knownIdbGet(KNOWN_IDB_HANDLE_KEY);
+    if (!handle) return;
+    knownFileHandle = handle;
+    knownFileName = handle.name;
+    if ((await handle.queryPermission({ mode: "read" })) === "granted") {
+      await readKnownHandle(handle);
+    } else {
+      renderKnownFileBtn("reconnect");
+    }
+  } catch (err) {
+    console.warn("known_words.json restore failed", err);
   }
 }
 
@@ -1199,6 +1528,8 @@ function wireDropZone(el, mode) {
 }
 
 parseBtn.addEventListener("click", parseInput);
+knownFileBtn.addEventListener("click", openKnownFile);
+knownFileInput.addEventListener("change", loadKnownFromInput);
 
 inputEl.addEventListener("input", (e) => {
   syncInputAction();
@@ -1319,3 +1650,4 @@ renderHelperModes();
 selected = [];
 saveKnown();
 renderBubbles();
+restoreKnownFile();

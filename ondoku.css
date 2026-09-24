@@ -1,0 +1,328 @@
+/* 音読タイマー — page-specific styles. Shared tokens and base styles come from vocab_clicker.css. */
+
+.ondoku-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "timer entry"
+    "log   log";
+  gap: 14px;
+  align-content: start;
+  padding-bottom: 14px;
+}
+
+.timer-card,
+.entry-card,
+.log-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.ondoku h2 {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: var(--accent);
+}
+
+/* ---------- timer ---------- */
+
+.timer-card {
+  grid-area: timer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 15rem;
+  text-align: center;
+  border-width: 2px;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.timer-msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.timer-clock {
+  font-size: 2.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.timer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#startBtn {
+  padding: 10px 28px;
+  font-size: 1.05rem;
+}
+
+.show-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.timer-card[data-state="running"],
+.timer-card[data-state="countdown"] {
+  border-color: var(--selected);
+}
+
+.timer-card[data-state="running"] .timer-msg,
+.timer-card[data-state="countdown"] .timer-msg {
+  color: var(--ink);
+}
+
+.timer-card[data-state="running"] .timer-msg::before,
+.timer-card[data-state="countdown"] .timer-msg::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--selected);
+  animation: rec-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes rec-dot {
+  50% { opacity: 0.25; }
+}
+
+.timer-card[data-state="done"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  animation: time-up 0.55s ease-in-out 4;
+}
+
+.timer-card[data-state="done"] .timer-msg {
+  color: var(--accent);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+@keyframes time-up {
+  50% {
+    background: var(--accent);
+  }
+}
+
+.tally-wrap[hidden],
+.tally-result[hidden] { display: none; }
+
+.tally-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tally-btn {
+  padding: 18px 36px;
+  font-size: 1.2rem;
+  font-weight: 650;
+  background: var(--accent);
+  touch-action: manipulation;
+  user-select: none;
+  transition: transform 0.08s ease;
+}
+
+.tally-btn:active,
+.tally-btn.bump {
+  transform: scale(0.94);
+}
+
+.tally-result {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.tally-result strong {
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- entry ---------- */
+
+.entry-card {
+  grid-area: entry;
+}
+
+.entry-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.entry-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.entry-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.entry-form input:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+#saveBtn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.entry-preview {
+  min-height: 1.4em;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.entry-preview strong {
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- log ---------- */
+
+.log-card {
+  grid-area: log;
+}
+
+.log-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.log-summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.wpm-chart {
+  display: block;
+  width: 100%;
+  height: 140px;
+  margin: 4px 0 10px;
+}
+
+.wpm-chart[hidden] { display: none; }
+
+.wpm-chart .grid { stroke: var(--line); stroke-width: 1; }
+.wpm-chart .axis-label { fill: var(--muted); font-size: 11px; }
+.wpm-chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.wpm-chart .dot { fill: var(--card); stroke: var(--accent); stroke-width: 2; }
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.log-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+
+.log-table th:first-child,
+.log-table td:first-child {
+  text-align: left;
+}
+
+.log-table th:nth-child(2),
+.log-table td:nth-child(2) {
+  text-align: left;
+}
+
+.log-table tr:last-child td { border-bottom: 0; }
+
+.log-table tr.today td { background: var(--selected-soft); }
+
+.log-table .del {
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+.log-table .del:hover { opacity: 1; color: var(--danger); border-color: var(--danger); }
+
+.log-table:has(tbody:empty) { display: none; }
+
+.log-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- footer ---------- */
+
+.file-status {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-status.linked { color: var(--selected); }
+.file-status.error { color: var(--danger); }
+
+#linkFileBtn {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+#about code {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.88em;
+}
+
+@media (max-width: 720px) {
+  .ondoku-main {
+    grid-template-columns: 1fr;
+    grid-template-areas: "timer" "entry" "log";
+  }
+}

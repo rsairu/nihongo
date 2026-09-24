@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>音読タイマー</title>
+  <link rel="stylesheet" href="vocab_clicker.css" />
+  <link rel="stylesheet" href="ondoku.css" />
+</head>
+<body class="ondoku">
+  <header class="topbar">
+    <h1>音読タイマー</h1>
+    <a class="about-link" href="#about" id="aboutLink">about</a>
+    <a class="page-link" href="vocab_clicker.html">← 語彙クリッカー</a>
+  </header>
+
+  <main class="ondoku-main">
+    <section id="timerCard" class="timer-card" data-state="idle" aria-live="polite">
+      <div id="timerMsg" class="timer-msg">準備ができたら開始</div>
+      <div id="timerClock" class="timer-clock" hidden>3:00</div>
+      <div id="tallyResult" class="tally-result" hidden></div>
+      <div id="tallyWrap" class="tally-wrap" hidden>
+        <button id="tallyBtn" class="tally-btn" type="button">なになに ＋1</button>
+        <button id="tallyUndoBtn" class="minor" type="button" title="1つ戻す">−1</button>
+      </div>
+      <div class="timer-actions">
+        <button id="startBtn" type="button">開始</button>
+        <button id="resetBtn" class="secondary" type="button" hidden>リセット</button>
+      </div>
+      <label class="show-time">
+        <input id="showTime" type="checkbox" />
+        残り時間を表示
+      </label>
+    </section>
+
+    <section class="entry-card">
+      <h2>今日の記録</h2>
+      <form id="entryForm" class="entry-form">
+        <label>
+          <span>日付</span>
+          <input id="entryDate" type="date" required />
+        </label>
+        <label>
+          <span>本</span>
+          <input id="entryBook" type="text" placeholder="本のタイトル（オプション）" />
+        </label>
+        <label>
+          <span>行数</span>
+          <input id="entryLines" type="number" min="0" step="0.5" inputmode="decimal" required />
+        </label>
+        <label>
+          <span>なになに</span>
+          <input id="entryUnknowns" type="number" min="0" step="1" inputmode="numeric" value="0" />
+        </label>
+        <button id="saveBtn" type="submit">保存</button>
+      </form>
+      <div id="entryPreview" class="entry-preview"></div>
+    </section>
+
+    <section class="log-card">
+      <div class="log-head">
+        <h2>記録</h2>
+        <span id="logSummary" class="log-summary"></span>
+      </div>
+      <svg id="chart" class="wpm-chart" role="img" aria-label="行/分の推移"></svg>
+      <div class="log-table-wrap">
+        <table id="logTable" class="log-table">
+          <thead>
+            <tr><th>日付</th><th>本</th><th>行数</th><th>行/分</th><th>なになに</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <p id="logEmpty" class="log-empty">まだ記録がありません。</p>
+      </div>
+    </section>
+  </main>
+
+  <footer id="footer">
+    <div class="known-head">
+      <h2>記録ファイル</h2>
+      <span id="fileStatus" class="file-status">ブラウザ内のみ</span>
+      <button id="linkFileBtn" class="secondary" type="button">reading_log.json を開く</button>
+      <button id="exportBtn" class="minor" type="button">JSONを書き出す</button>
+    </div>
+  </footer>
+
+  <dialog id="about" aria-labelledby="aboutTitle">
+    <h2 id="aboutTitle">使い方</h2>
+    <p class="lede">1日1回、3分間の音読。読めない漢字は「なになに」と読んで先へ進み、そのたびに「なになに ＋1」を押します（数は終了時に表示）。3分たつと音と表示で知らせます。読んだ量は行数（縦書きの行）で数えます。同じ本の中なら1行の長さがほぼ一定なので、進歩の目安になります。</p>
+    <div class="words-help" aria-label="操作">
+      <span><kbd>Space</kbd>開始／読書中はなになに＋1</span>
+      <span><kbd>行/分</kbd>行数 ÷ 3</span>
+    </div>
+    <p class="lede">開始ボタンを押すと5秒のカウントダウンの後、3分のタイマーが始まります。記録は <code>reading_log.json</code> に保存されます。最初に一度「reading_log.json を開く」でファイルを選んでください。同じ日付は上書きされます。</p>
+    <form method="dialog">
+      <button class="secondary" type="submit">閉じる</button>
+    </form>
+  </dialog>
+
+  <script src="ondoku.js"></script>
+</body>
+</html>

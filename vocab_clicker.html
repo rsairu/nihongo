@@ -10,6 +10,12 @@
   <header class="topbar">
     <h1>語彙クリッカー</h1>
     <a class="about-link" href="#about" id="aboutLink">about</a>
+    <a class="page-link" href="ondoku.html">音読タイマー →</a>
+    <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
+      <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
+      <button id="fontResetBtn" class="font-size-btn font-size-reset" type="button" title="クリックで100%に戻す">100%</button>
+      <button id="fontIncBtn" class="font-size-btn" type="button" aria-label="文字を大きく" title="文字を大きく">A+</button>
+    </div>
   </header>
 
   <div class="workspace">
@@ -20,6 +26,8 @@
       </div>
       <div class="actions">
         <button id="parseBtn" type="button">解析</button>
+        <button id="knownFileBtn" class="minor" type="button" title="このファイルにある単語は解析結果から除かれます">known_words.json を開く</button>
+        <input id="knownFileInput" type="file" accept=".json,application/json" hidden />
         <span id="status"></span>
       </div>
     </div>
@@ -28,6 +36,7 @@
         <button id="helperModeDict" class="helper-mode active" type="button" role="tab" aria-selected="true" aria-controls="helperDictBlock" data-mode="dict">辞書</button>
         <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji">漢字表記</button>
         <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence">例文</button>
+        <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes">類義語</button>
       </div>
       <form id="helperForm" class="lookup-row">
         <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" />
@@ -63,6 +72,16 @@
           </div>
           <div id="helperSentencePrev"></div>
         </div>
+        <div id="helperThesBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeThes">
+          <div class="thes-section">
+            <div class="thes-label">類義</div>
+            <div id="helperSimilar" class="thes-list"></div>
+          </div>
+          <div class="thes-section">
+            <div class="thes-label">対義</div>
+            <div id="helperOpposite" class="thes-list"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -90,8 +109,9 @@
       <span><kbd>左クリック</kbd>既知にする</span>
       <span><kbd>右クリック</kbd>例文</span>
       <span><kbd>選択</kbd>調べる</span>
-      <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文へ</span>
+      <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語へ</span>
     </div>
+    <p class="lede">「known_words.json を開く」でファイルを選ぶと、解析のたびにそのファイルを読み直し、完全一致する単語をバブルから除きます。</p>
     <form method="dialog">
       <button class="secondary" type="submit">閉じる</button>
     </form>

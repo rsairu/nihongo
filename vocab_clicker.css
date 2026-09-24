@@ -10,6 +10,8 @@
   --kanji-soft: #dde6ea;
   --sentence: #6b4f7a;
   --sentence-soft: #ebe4ef;
+  --thes: #2a6b66;
+  --thes-soft: #d7e8e6;
   --selected: #2f6f4e;
   --selected-soft: #dceee4;
   --danger: #a33;
@@ -25,6 +27,11 @@ html, body {
   background: var(--bg);
   color: var(--ink);
   font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+}
+
+html {
+  font-size: 100%;
+  transition: font-size 0.12s ease;
 }
 
 body {
@@ -57,6 +64,62 @@ h1 {
 .about-link:hover {
   color: var(--ink);
   text-decoration: underline;
+}
+
+.page-link {
+  margin-left: auto;
+  align-self: center;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.page-link:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.font-size-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+}
+
+.font-size-btn {
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.4;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+}
+
+.font-size-btn:hover {
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.font-size-reset {
+  min-width: 2.8em;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.font-size-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+  color: var(--muted);
 }
 
 .lede {
@@ -146,6 +209,16 @@ button.minor:hover {
   border-color: var(--ink);
 }
 
+button.minor.known-linked {
+  color: var(--ink);
+  border-style: solid;
+}
+
+button.minor.known-error {
+  color: #b3261e;
+  border-color: #b3261e;
+}
+
 button:disabled {
   opacity: 0.55;
   cursor: wait;
@@ -221,6 +294,13 @@ button:disabled {
   border-color: #d4cdd9;
 }
 
+.lookup-box[data-mode="thes"] {
+  --accent: var(--thes);
+  --accent-soft: var(--thes-soft);
+  background: #f4f8f7;
+  border-color: #c5d8d5;
+}
+
 @keyframes lookup-pulse {
   0%, 100% {
     border-color: var(--line);
@@ -282,6 +362,11 @@ button:disabled {
   border-color: var(--sentence);
 }
 
+.helper-mode[data-mode="thes"].active {
+  background: var(--thes-soft);
+  border-color: var(--thes);
+}
+
 body.dragging-word .helper-mode {
   border-style: dashed;
 }
@@ -296,6 +381,10 @@ body.dragging-word .helper-mode[data-mode="kanji"] {
 
 body.dragging-word .helper-mode[data-mode="sentence"] {
   border-color: var(--sentence);
+}
+
+body.dragging-word .helper-mode[data-mode="thes"] {
+  border-color: var(--thes);
 }
 
 .helper-mode.drop-target {
@@ -316,6 +405,11 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 .helper-mode[data-mode="sentence"].drop-target {
   background: var(--sentence);
   border-color: var(--sentence);
+}
+
+.helper-mode[data-mode="thes"].drop-target {
+  background: var(--thes);
+  border-color: var(--thes);
 }
 
 .lookup-row {
@@ -437,6 +531,7 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 .helper-tab-pip[data-mode="dict"] { background: var(--accent); }
 .helper-tab-pip[data-mode="kanji"] { background: var(--kanji); }
 .helper-tab-pip[data-mode="sentence"] { background: var(--sentence); }
+.helper-tab-pip[data-mode="thes"] { background: var(--thes); }
 
 .helper-tab-mode {
   max-width: none;
@@ -474,6 +569,12 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
   border: 1px solid #cfc4d6;
 }
 
+.helper-tab[data-mode="thes"] {
+  background: #e1eeec;
+  color: #2f5c58;
+  border: 1px solid #c3d6d3;
+}
+
 .helper-tab:hover {
   opacity: 1;
   color: var(--ink);
@@ -489,6 +590,10 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 
 .helper-tab[data-mode="sentence"]:hover {
   border-color: var(--sentence);
+}
+
+.helper-tab[data-mode="thes"]:hover {
+  border-color: var(--thes);
 }
 
 .helper-tab.active {
@@ -510,6 +615,11 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 .helper-tab.active[data-mode="sentence"] {
   background: var(--sentence-soft);
   border-color: var(--sentence);
+}
+
+.helper-tab.active[data-mode="thes"] {
+  background: var(--thes-soft);
+  border-color: var(--thes);
 }
 
 .helper-tab-group.expanded > .helper-tab-word.helper-tab,
@@ -544,7 +654,8 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 
 #helperResult.error #helperKana,
 #helperResult.error #helperKanjiForm,
-#helperResult.error #helperSentence {
+#helperResult.error #helperSentence,
+#helperResult.error .thes-empty {
   color: var(--danger);
 }
 
@@ -699,6 +810,62 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 .helper-sentence-prev:hover {
   color: var(--ink);
   border-color: var(--sentence);
+}
+
+.thes-section + .thes-section {
+  margin-top: 10px;
+}
+
+.thes-label {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.thes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.thes-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.thes-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.thes-chip:hover {
+  border-color: var(--thes);
+}
+
+.thes-word {
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.thes-reading {
+  color: var(--thes);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.thes-gloss {
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 
 @media (max-width: 720px) {
