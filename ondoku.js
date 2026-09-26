@@ -178,6 +178,8 @@ async function syncWithFile() {
   setStatus(`${fileHandle.name} に保存中`, "linked");
   linkFileBtn.textContent = "別のファイル…";
   render();
+  // The log may have loaded after the form was first filled; fill in the book if still blank.
+  if (!entryBook.value && !findSession(entryDate.value)) entryBook.value = latestBook();
 }
 
 async function linkFile() {
@@ -379,6 +381,14 @@ function findSession(date) {
   return sessions.find((s) => s.date === date);
 }
 
+// Title of the most recent session that has one, used to prefill a new day's entry.
+function latestBook() {
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    if (sessions[i].book) return sessions[i].book;
+  }
+  return "";
+}
+
 function syncEntryToDate() {
   const existing = findSession(entryDate.value);
   if (existing) {
@@ -386,7 +396,7 @@ function syncEntryToDate() {
     entryLines.value = existing.lines;
     entryUnknowns.value = existing.unknowns;
   } else {
-    entryBook.value = "";
+    entryBook.value = latestBook();
   }
   saveBtn.textContent = existing ? "上書き保存" : "保存";
   renderPreview();

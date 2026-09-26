@@ -384,7 +384,7 @@ function buildThesPrompt(query, context) {
     "Output exactly 2 lines and nothing else:",
     "類義: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
     "対義: 単語｜よみ｜短い意味",
-    "3 to 6 synonyms. 0 to 4 antonyms. Use なし when a list is empty.",
+    "1 to 4 synonyms. 0 to 3 antonyms. Use なし when a list is empty.",
     "No quotes or extra commentary.",
     "",
     "Q: " + query
