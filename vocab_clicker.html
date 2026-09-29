@@ -10,6 +10,8 @@
   <header class="topbar">
     <h1>語彙クリッカー</h1>
     <a class="about-link" href="#about" id="aboutLink">about</a>
+    <button id="knownFileBtn" class="minor known-file-btn known-unset" type="button" title="このファイルにある単語は解析結果から除かれます">known_words.json を開く</button>
+    <input id="knownFileInput" type="file" accept=".json,application/json" hidden />
     <a class="page-link" href="ondoku.html">音読タイマー →</a>
     <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
       <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
@@ -26,8 +28,6 @@
       </div>
       <div class="actions">
         <button id="parseBtn" type="button">解析</button>
-        <button id="knownFileBtn" class="minor" type="button" title="このファイルにある単語は解析結果から除かれます">known_words.json を開く</button>
-        <input id="knownFileInput" type="file" accept=".json,application/json" hidden />
         <span id="status"></span>
       </div>
     </div>
@@ -37,6 +37,7 @@
         <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji">漢字表記</button>
         <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence">例文</button>
         <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes">類義語</button>
+        <button id="helperModeHandwriting" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperHandwritingBlock" data-mode="handwriting">手書き</button>
       </div>
       <form id="helperForm" class="lookup-row">
         <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" />
@@ -82,6 +83,13 @@
             <div id="helperOpposite" class="thes-list"></div>
           </div>
         </div>
+        <div id="helperHandwritingBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeHandwriting">
+          <div class="handwriting-pad">
+            <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
+            <button id="handwritingClearBtn" class="minor" type="button" hidden>クリア</button>
+          </div>
+          <div id="handwritingCandidates" class="handwriting-candidates" aria-live="polite" aria-label="認識候補"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -110,6 +118,7 @@
       <span><kbd>右クリック</kbd>例文</span>
       <span><kbd>選択</kbd>調べる</span>
       <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語へ</span>
+      <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 辞書</span>
     </div>
     <p class="lede">「known_words.json を開く」でファイルを選ぶと、解析のたびにそのファイルを読み直し、完全一致する単語をバブルから除きます。</p>
     <form method="dialog">

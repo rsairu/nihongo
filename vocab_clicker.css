@@ -12,6 +12,8 @@
   --sentence-soft: #ebe4ef;
   --thes: #2a6b66;
   --thes-soft: #d7e8e6;
+  --handwriting: #8a5a2e;
+  --handwriting-soft: #ede1d2;
   --selected: #2f6f4e;
   --selected-soft: #dceee4;
   --danger: #a33;
@@ -131,21 +133,23 @@ h1 {
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 14px;
+  grid-template-rows: auto auto;
+  gap: 12px 14px;
   align-items: stretch;
   flex-shrink: 0;
   margin: 0 0 12px;
 }
 
+/* parse-col の子（入力欄・操作行）をグリッドに直接並べ、入力欄と調べるパネルの下端を揃える */
 .parse-col {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+  display: contents;
 }
 
 .input-wrap {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
   position: relative;
-  flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 88px;
@@ -153,7 +157,8 @@ h1 {
 
 textarea {
   width: 100%;
-  flex: 1;
+  flex: 1 1 auto; /* リサイズした高さが行の高さになる（下限は調べるパネルの高さ） */
+  height: 0;
   min-height: 88px;
   padding: 14px 132px 14px 14px;
   border: 1px solid var(--line);
@@ -172,12 +177,13 @@ textarea {
 }
 
 .actions {
+  grid-column: 1;
+  grid-row: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin: 12px 0 0;
-  flex-shrink: 0;
+  margin: 0;
 }
 
 button {
@@ -216,6 +222,23 @@ button.minor.known-linked {
 
 button.minor.known-error {
   color: #b3261e;
+  border-color: #b3261e;
+}
+
+.known-file-btn {
+  align-self: center;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+
+button.minor.known-unset {
+  color: #9c3a32;
+  background: #f7e3df;
+  border-color: #e3b4ac;
+}
+
+button.minor.known-unset:hover {
+  color: #7d2a23;
   border-color: #b3261e;
 }
 
@@ -267,10 +290,13 @@ button:disabled {
 }
 
 .lookup-box {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 20rem;
+  min-height: 20rem;
+  contain: size; /* 中身で行を広げない（高さは入力欄と共有） */
   margin: 0;
   padding: 12px 14px;
   background: var(--card);
@@ -299,6 +325,13 @@ button:disabled {
   --accent-soft: var(--thes-soft);
   background: #f4f8f7;
   border-color: #c5d8d5;
+}
+
+.lookup-box[data-ui-tab="handwriting"] {
+  --accent: var(--handwriting);
+  --accent-soft: var(--handwriting-soft);
+  background: #f7f3ee;
+  border-color: #ddd0c0;
 }
 
 @keyframes lookup-pulse {
@@ -365,6 +398,11 @@ button:disabled {
 .helper-mode[data-mode="thes"].active {
   background: var(--thes-soft);
   border-color: var(--thes);
+}
+
+.helper-mode[data-mode="handwriting"].active {
+  background: var(--handwriting-soft);
+  border-color: var(--handwriting);
 }
 
 body.dragging-word .helper-mode {
@@ -663,6 +701,106 @@ body.dragging-word .helper-mode[data-mode="thes"] {
 
 .helper-block.visible { display: block; }
 
+.lookup-box[data-ui-tab="handwriting"] #helperResult {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lookup-box[data-ui-tab="handwriting"] #helperWord,
+.lookup-box[data-ui-tab="handwriting"] #helperHistory,
+.lookup-box[data-ui-tab="handwriting"] .helper-block {
+  display: none;
+}
+
+.lookup-box[data-ui-tab="handwriting"] #helperHandwritingBlock {
+  display: flex;
+}
+
+.lookup-box[data-ui-tab="handwriting"] #helperForm {
+  display: none;
+}
+
+#helperHandwritingBlock {
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+}
+
+.handwriting-pad {
+  position: relative;
+  flex: 0 1 360px;
+  min-width: 0;
+  display: flex;
+}
+
+#handwritingCanvas {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+#handwritingClearBtn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.handwriting-candidates {
+  flex: 1 1 120px;
+  min-width: 110px;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  overflow-y: auto;
+  transition: opacity 0.15s;
+}
+
+.handwriting-candidates.loading {
+  opacity: 0.55;
+}
+
+.handwriting-candidate {
+  padding: 4px 10px;
+  min-width: 2.2rem;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.handwriting-candidate:first-child {
+  background: var(--accent-soft);
+  font-weight: 650;
+}
+
+.handwriting-candidate:hover,
+.handwriting-candidate:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.handwriting-status {
+  align-self: center;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.handwriting-candidates.error .handwriting-status {
+  color: var(--danger);
+}
+
 #helperWord {
   color: var(--muted);
   font-size: 0.75rem;
@@ -873,8 +1011,13 @@ body.dragging-word .helper-mode[data-mode="thes"] {
     grid-template-columns: 1fr;
   }
 
+  .input-wrap { grid-column: 1; grid-row: 1; }
+  .actions { grid-column: 1; grid-row: 2; }
+
   .lookup-box {
-    height: 18rem;
+    grid-column: 1;
+    grid-row: 3;
+    min-height: 18rem;
   }
 
   .known-head {
