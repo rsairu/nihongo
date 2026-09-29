@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>調べる</title>
+  <link rel="stylesheet" href="vocab_clicker.css" />
+  <link rel="stylesheet" href="lookup.css" />
+</head>
+<body class="lookup-body">
+  <header class="topbar">
+    <h1>調べる</h1>
+    <a class="about-link" href="#about" id="aboutLink">about</a>
+    <button id="gakuseiBtn" class="minor gakusei-btn" type="button" aria-pressed="false" title="説明・意味・例文をすべて小学6年生が読めるやさしさにします"><span class="gakusei-cap" aria-hidden="true">🎓</span>小6モード</button>
+    <nav class="page-links">
+      <a class="page-link" href="vocab_clicker.html">語彙クリッカー →</a>
+      <a class="page-link" href="ondoku.html">音読タイマー →</a>
+    </nav>
+    <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
+      <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
+      <button id="fontResetBtn" class="font-size-btn font-size-reset" type="button" title="クリックで100%に戻す">100%</button>
+      <button id="fontIncBtn" class="font-size-btn" type="button" aria-label="文字を大きく" title="文字を大きく">A+</button>
+    </div>
+  </header>
+
+  <main class="lookup-box lookup-page" data-mode="dict">
+    <div id="helperModes" role="tablist" aria-label="調べ方">
+      <button id="helperModeDict" class="helper-mode active" type="button" role="tab" aria-selected="true" aria-controls="helperDictBlock" data-mode="dict"><img class="mode-icon" src="icons_png/web/lookup.png" alt="" width="48" height="48" /><span class="mode-label">辞書</span></button>
+      <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
+      <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence"><img class="mode-icon" src="icons_png/web/sentence.png" alt="" width="48" height="48" /><span class="mode-label">例文</span></button>
+      <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
+      <button id="helperModeHandwriting" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperHandwritingBlock" data-mode="handwriting"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /><span class="mode-label">手書き</span></button>
+    </div>
+    <form id="helperForm" class="lookup-row">
+      <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" autofocus />
+      <button id="helperBtn" type="submit">調べる</button>
+    </form>
+    <div id="helperHistory">
+      <button id="helperScrollLeft" class="helper-scroll" type="button" aria-label="前の検索履歴">&lt;</button>
+      <div id="helperTabs" role="tablist" aria-label="最近の検索"></div>
+      <button id="helperScrollRight" class="helper-scroll" type="button" aria-label="次の検索履歴">&gt;</button>
+    </div>
+    <div id="helperResult">
+      <div id="helperWord"></div>
+      <div id="helperDictBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeDict">
+        <div id="helperKana" title="クリックでコピー"></div>
+        <div id="helperDef"></div>
+        <div id="helperEn"></div>
+        <button id="helperEnBtn" class="secondary" type="button">英訳を表示</button>
+      </div>
+      <div id="helperKanjiBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeKanji">
+        <div id="helperKanjiForm"></div>
+        <div class="kanji-usage">
+          <span id="helperKanjiMeter" class="kanji-meter" role="img"></span>
+          <span id="helperKanjiLabel"></span>
+        </div>
+        <div id="helperKanjiNote"></div>
+      </div>
+      <div id="helperSentenceBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeSentence">
+        <div id="helperSentence"></div>
+        <div id="helperSentenceEn"></div>
+        <div class="helper-sentence-actions">
+          <button id="helperSentenceEnBtn" class="secondary" type="button">英訳を表示</button>
+          <button id="helperSentenceRegenBtn" type="button">例文を作り直す</button>
+        </div>
+        <div id="helperSentencePrev"></div>
+      </div>
+      <div id="helperThesBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeThes">
+        <div class="thes-section">
+          <div class="thes-label">類義</div>
+          <div id="helperSimilar" class="thes-list"></div>
+        </div>
+        <div class="thes-section">
+          <div class="thes-label">対義</div>
+          <div id="helperOpposite" class="thes-list"></div>
+        </div>
+      </div>
+      <div id="helperHandwritingBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeHandwriting">
+        <div class="handwriting-pad">
+          <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
+          <button id="handwritingClearBtn" class="minor" type="button" hidden>クリア</button>
+        </div>
+        <div id="handwritingCandidates" class="handwriting-candidates" aria-live="polite" aria-label="認識候補"></div>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="about" aria-labelledby="aboutTitle">
+    <h2 id="aboutTitle">使い方</h2>
+    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語で調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
+    <div class="words-help" aria-label="操作">
+      <span><kbd>Enter</kbd>調べる</span>
+      <span><kbd>例文の漢字</kbd>クリックで辞書へ</span>
+      <span><kbd>類義語</kbd>クリックでその語を調べる</span>
+      <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 辞書</span>
+      <span><kbd>🎓 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
+    </div>
+    <p class="lede">単語リストの解析とバブルは「語彙クリッカー」にあります。</p>
+    <form method="dialog">
+      <button class="secondary" type="submit">閉じる</button>
+    </form>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="gakusei.js"></script>
+  <script src="vocab_clicker.js"></script>
+</body>
+</html>

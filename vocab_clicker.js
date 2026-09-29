@@ -2,6 +2,7 @@ const CLAUDE_MODEL = "claude-haiku-4-5";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5"; // kanji usage + example sentences: heavier judgment calls
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
 const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale";
+const GAKUSEI_STORAGE_KEY = "vocab-clicker-gakusei-mode";
 const FONT_SCALE_MIN = 0.8;
 const FONT_SCALE_MAX = 1.6;
 const FONT_SCALE_STEP = 0.1;
@@ -30,6 +31,7 @@ const removeKnownBtn = document.getElementById("removeKnownBtn");
 const fontDecBtn = document.getElementById("fontDecBtn");
 const fontIncBtn = document.getElementById("fontIncBtn");
 const fontResetBtn = document.getElementById("fontResetBtn");
+const gakuseiBtn = document.getElementById("gakuseiBtn");
 const helperForm = document.getElementById("helperForm");
 const helperInput = document.getElementById("helperInput");
 const helperBtn = document.getElementById("helperBtn");
@@ -60,6 +62,8 @@ const helperThesBlock = document.getElementById("helperThesBlock");
 const helperSimilar = document.getElementById("helperSimilar");
 const helperOpposite = document.getElementById("helperOpposite");
 const lookupBox = document.querySelector(".lookup-box");
+// lookup.html は調べるパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
+const HAS_PARSER = Boolean(inputEl && bubblesEl);
 const HELPER_HISTORY_LIMIT = 10;
 const HELPER_MODES = ["dict", "kanji", "sentence", "thes"];
 const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語" };
@@ -88,13 +92,16 @@ let knownFileName = "";
 /** how many parsed words the last parse dropped as already known */
 let lastExcludedCount = 0;
 /** @type {Record<string, {ja: string, en: string}[]>} */
-const sentenceCache = {};
-/** @type {Record<string, {reading: string, ja: string, en: string}>} */
-const dictCache = {};
-/** @type {Record<string, {form: string, usage: number, label: string, preferred: string, note: string}>} */
-const kanjiCache = {};
-/** @type {Record<string, {similar: {word: string, reading: string, gloss: string}[], opposite: {word: string, reading: string, gloss: string}[]}>} */
-const thesCache = {};
+// 小6モード (gakusei_mode): 返ってくる説明をすべて小学6年生レベルにする。レベルごとにキャッシュを分ける。
+let gakuseiMode = false;
+function createCacheBank() {
+  return { sentence: {}, dict: {}, kanji: {}, thes: {} };
+}
+const cacheBanks = { standard: createCacheBank(), gakusei: createCacheBank() };
+let sentenceCache = cacheBanks.standard.sentence;
+let dictCache = cacheBanks.standard.dict;
+let kanjiCache = cacheBanks.standard.kanji;
+let thesCache = cacheBanks.standard.thes;
 /** @type {AbortController | null} */
 let helperEnAbort = null;
 let helperEnRequestId = 0;
@@ -459,29 +466,65 @@ function hasApiKey() {
   return Boolean(key) && key !== "PASTE_KEY_HERE";
 }
 
-async function requestClaudeText(prompt, maxTokens, signal, temperature, model) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey(),
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    },
-    body: JSON.stringify({
-      model: model || CLAUDE_MODEL,
-      max_tokens: maxTokens,
-      temperature: temperature == null ? 0 : temperature,
-      messages: [{ role: "user", content: prompt }]
-    }),
-    signal
-  });
+// Hosted (Vercel): no key in the browser; requests go through /api/claude, gated by a passcode.
+const PROXY_URL = "/api/claude";
+const ACCESS_CODE_STORAGE_KEY = "vocab_clicker_access_code";
+const useProxy = () => !hasApiKey() && /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
-  const data = await res.json();
+function getAccessCode(forcePrompt) {
+  let code = "";
+  try { code = localStorage.getItem(ACCESS_CODE_STORAGE_KEY) || ""; } catch (_) {}
+  if (!code || forcePrompt) {
+    code = (window.prompt("アクセスコード") || "").trim();
+    try { localStorage.setItem(ACCESS_CODE_STORAGE_KEY, code); } catch (_) {}
+  }
+  return code;
+}
+
+// 直接 Anthropic に送るとき（ローカル + config.js のキー）はここでハーネスをかける。
+// プロキシ経由ではフラグだけ送り、サーバー側 (api/claude.js) が同じ gakusei.js でかける。
+const GakuseiHarness = typeof Gakusei === "object" && Gakusei ? Gakusei : null;
+
+function buildClaudeBody(prompt, maxTokens, temperature, model) {
+  const base = {
+    model: model || CLAUDE_MODEL,
+    max_tokens: maxTokens,
+    temperature: temperature == null ? 0 : temperature,
+    messages: [{ role: "user", content: prompt }]
+  };
+  if (useProxy()) return JSON.stringify(gakuseiMode ? { ...base, gakusei_mode: true } : base);
+  if (gakuseiMode && GakuseiHarness) return JSON.stringify(GakuseiHarness.applyRequest(base, true));
+  return JSON.stringify(base);
+}
+
+async function requestClaudeText(prompt, maxTokens, signal, temperature, model) {
+  const direct = !useProxy();
+  const wantGakusei = gakuseiMode;
+  const body = buildClaudeBody(prompt, maxTokens, temperature, model);
+  const send = (code) =>
+    useProxy()
+      ? fetch(PROXY_URL, { method: "POST", headers: { "content-type": "application/json", "x-access-code": code }, body, signal })
+      : fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": apiKey(),
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true"
+          },
+          body,
+          signal
+        });
+
+  let res = await send(useProxy() ? getAccessCode(false) : "");
+  if (res.status === 401 && useProxy()) res = await send(getAccessCode(true));
+
+  let data = await res.json();
   if (!res.ok) {
     const msg = (data.error && data.error.message) || ("HTTP " + res.status);
     throw new Error(msg);
   }
+  if (direct && GakuseiHarness) data = GakuseiHarness.formatResponse(data, wantGakusei);
 
   return (data.content || [])
     .filter((b) => b.type === "text")
@@ -1069,7 +1112,7 @@ async function runHelperFetch(item, mode, options) {
   const fetchId = ++st.fetchId;
   repaintHelper(item, mode);
 
-  if (!hasApiKey()) {
+  if (!hasApiKey() && !useProxy()) {
     if (keepSentence) {
       finishHelperFetch(item, mode, fetchId, st.entry, "");
       return;
@@ -1198,7 +1241,7 @@ async function ensureHelperEnglish() {
   if (!query) return "";
   const sourceEntry = helperEntry;
 
-  if (!hasApiKey()) {
+  if (!hasApiKey() && !useProxy()) {
     helperEn.textContent = "APIキーを設定してください";
     helperEn.classList.add("visible");
     return "";
@@ -1498,7 +1541,7 @@ function selectionLookupContext(node) {
   }
   const el = node.nodeType === 1 ? node : node.parentElement;
   const field = el && el.closest(".meaning, .word, .reading");
-  if (!field || !bubblesEl.contains(field)) return null;
+  if (!field || !bubblesEl || !bubblesEl.contains(field)) return null;
   const card = field.closest(".bubble");
   const item = card ? items.find((it) => it.word === card.dataset.word) : null;
   return { el: field, item: item || null };
@@ -1557,40 +1600,44 @@ function wireDropZone(el, mode) {
   });
 }
 
-parseBtn.addEventListener("click", parseInput);
-knownFileBtn.addEventListener("click", openKnownFile);
-knownFileInput.addEventListener("change", loadKnownFromInput);
+if (HAS_PARSER) {
+  parseBtn.addEventListener("click", parseInput);
+  knownFileBtn.addEventListener("click", openKnownFile);
+  knownFileInput.addEventListener("change", loadKnownFromInput);
 
-inputEl.addEventListener("input", (e) => {
-  syncInputAction();
-  if (e.inputType === "insertFromPaste" && inputHasText()) clearKnown();
-});
+  inputEl.addEventListener("input", (e) => {
+    syncInputAction();
+    if (e.inputType === "insertFromPaste" && inputHasText()) clearKnown();
+  });
 
-inputEl.addEventListener("paste", (e) => {
-  const text = (e.clipboardData && e.clipboardData.getData("text/plain")) || "";
-  if (text.trim()) clearKnown();
-});
+  inputEl.addEventListener("paste", (e) => {
+    const text = (e.clipboardData && e.clipboardData.getData("text/plain")) || "";
+    if (text.trim()) clearKnown();
+  });
 
-inputActionBtn.addEventListener("click", () => {
-  if (inputHasText()) {
-    inputEl.value = "";
+  inputActionBtn.addEventListener("click", () => {
+    if (inputHasText()) {
+      inputEl.value = "";
+      parseInput();
+      inputEl.focus();
+      return;
+    }
+    inputEl.value = SAMPLE_VOCAB;
     parseInput();
-    inputEl.focus();
-    return;
-  }
-  inputEl.value = SAMPLE_VOCAB;
-  parseInput();
-});
+  });
 
-aboutLink.addEventListener("click", (e) => {
-  e.preventDefault();
-  aboutDialog.showModal();
-});
+  clearBtn.addEventListener("click", clearKnown);
 
-clearBtn.addEventListener("click", clearKnown);
+  copyBtn.addEventListener("click", copyCsv);
+  removeKnownBtn.addEventListener("click", removeKnownFromInput);
+}
 
-copyBtn.addEventListener("click", copyCsv);
-removeKnownBtn.addEventListener("click", removeKnownFromInput);
+if (aboutLink && aboutDialog) {
+  aboutLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    aboutDialog.showModal();
+  });
+}
 
 lookupBox.addEventListener("animationend", (e) => {
   if (e.animationName === "lookup-pulse") lookupBox.classList.remove("pulse");
@@ -1888,8 +1935,171 @@ document.addEventListener("mouseup", () => {
   helperLookupFromHighlight(word, headword ? bubbleContext(ctx.item) : null);
 });
 
+// 小6モードの切り替え。レベルを変えたら表示中の結果を捨てて、そのレベルのキャッシュから（なければ取得し直して）出す。
+function renderGakuseiBtn() {
+  if (!gakuseiBtn) return;
+  gakuseiBtn.setAttribute("aria-pressed", gakuseiMode ? "true" : "false");
+  gakuseiBtn.classList.toggle("gakusei-on", gakuseiMode);
+  document.documentElement.classList.toggle("gakusei-mode", gakuseiMode);
+}
+
+function setGakuseiMode(enabled, save) {
+  const next = Boolean(enabled);
+  if (save) {
+    try {
+      localStorage.setItem(GAKUSEI_STORAGE_KEY, next ? "1" : "0");
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  if (next === gakuseiMode) {
+    renderGakuseiBtn();
+    return;
+  }
+  gakuseiMode = next;
+  const bank = gakuseiMode ? cacheBanks.gakusei : cacheBanks.standard;
+  sentenceCache = bank.sentence;
+  dictCache = bank.dict;
+  kanjiCache = bank.kanji;
+  thesCache = bank.thes;
+  renderGakuseiBtn();
+
+  if (helperEnAbort) helperEnAbort.abort();
+  helperEnAbort = null;
+  helperEntry = null;
+  for (const item of helperHistory) {
+    abortHelperItem(item);
+    for (const mode of HELPER_MODES) {
+      const st = modeState(item, mode);
+      st.entry = null;
+      st.error = "";
+      st.enShown = false;
+      st.fetchId++;
+    }
+  }
+  const active = getActiveHelperItem();
+  if (active && helperResult.classList.contains("visible") && !handwritingOpen) {
+    paintHelperItem(active);
+    runHelperFetch(active, helperMode);
+  } else {
+    renderHelperTabs();
+  }
+}
+
+function loadGakuseiMode() {
+  try {
+    return localStorage.getItem(GAKUSEI_STORAGE_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+// ONにしたときだけ小さなトーストでほめる（読み込み時・他タブとの同期では出さない）
+const GAKUSEI_CHEERS = [
+  "やさしい言葉で説明するよ。いっしょにがんばろう！",
+  "いいね！わかるところから、少しずつ。",
+  "ナイス！読めた言葉がどんどんふえるよ。",
+  "その調子！むずかしい言葉も、かんたんに。"
+];
+let gakuseiToastEl = null;
+let gakuseiToastTimer = 0;
+let gakuseiCheerIndex = -1;
+
+function showGakuseiToast() {
+  if (!gakuseiToastEl) {
+    gakuseiToastEl = document.createElement("div");
+    gakuseiToastEl.className = "gakusei-toast";
+    gakuseiToastEl.setAttribute("role", "status");
+    gakuseiToastEl.setAttribute("aria-live", "polite");
+    gakuseiToastEl.innerHTML =
+      '<span class="gakusei-toast-cap" aria-hidden="true">🎓</span>' +
+      '<span class="gakusei-toast-text"><strong>小6モード ON</strong><span class="gakusei-toast-cheer"></span></span>';
+    gakuseiToastEl.addEventListener("click", hideGakuseiToast);
+    document.body.append(gakuseiToastEl);
+  }
+  gakuseiCheerIndex = (gakuseiCheerIndex + 1 + Math.floor(Math.random() * (GAKUSEI_CHEERS.length - 1))) % GAKUSEI_CHEERS.length;
+  gakuseiToastEl.querySelector(".gakusei-toast-cheer").textContent = GAKUSEI_CHEERS[gakuseiCheerIndex];
+  gakuseiToastEl.classList.remove("show");
+  void gakuseiToastEl.offsetWidth; // 連打してもアニメーションをやり直す
+  gakuseiToastEl.classList.add("show");
+  clearTimeout(gakuseiToastTimer);
+  gakuseiToastTimer = setTimeout(hideGakuseiToast, 2600);
+}
+
+function hideGakuseiToast() {
+  clearTimeout(gakuseiToastTimer);
+  if (gakuseiToastEl) gakuseiToastEl.classList.remove("show");
+}
+
+if (gakuseiBtn) {
+  gakuseiBtn.addEventListener("click", () => {
+    setGakuseiMode(!gakuseiMode, true);
+    if (gakuseiMode) {
+      showGakuseiToast();
+      gakuseiBtn.classList.remove("gakusei-pop");
+      void gakuseiBtn.offsetWidth;
+      gakuseiBtn.classList.add("gakusei-pop");
+    } else {
+      hideGakuseiToast();
+    }
+  });
+}
+window.addEventListener("storage", (e) => {
+  if (e.key === GAKUSEI_STORAGE_KEY) setGakuseiMode(e.newValue === "1", false);
+});
+setGakuseiMode(loadGakuseiMode(), false);
+
+// 文字サイズ: html の font-size を倍率で変える（rem 指定の要素がまとめて拡大縮小）。両ページで共有して保存。
+function clampFontScale(scale) {
+  const n = Number(scale);
+  if (!Number.isFinite(n)) return FONT_SCALE_DEFAULT;
+  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(n * 10) / 10));
+}
+
+let fontScale = FONT_SCALE_DEFAULT;
+
+function applyFontScale(scale, save) {
+  fontScale = clampFontScale(scale);
+  document.documentElement.style.fontSize = fontScale === FONT_SCALE_DEFAULT ? "" : fontScale * 100 + "%";
+  if (fontResetBtn) {
+    fontResetBtn.textContent = Math.round(fontScale * 100) + "%";
+    fontResetBtn.classList.toggle("is-default", fontScale === FONT_SCALE_DEFAULT);
+  }
+  if (fontDecBtn) fontDecBtn.disabled = fontScale <= FONT_SCALE_MIN;
+  if (fontIncBtn) fontIncBtn.disabled = fontScale >= FONT_SCALE_MAX;
+  if (save) {
+    try {
+      localStorage.setItem(FONT_SCALE_STORAGE_KEY, String(fontScale));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  requestAnimationFrame(updateHelperHistoryScroll);
+}
+
+function loadFontScale() {
+  try {
+    const saved = localStorage.getItem(FONT_SCALE_STORAGE_KEY);
+    if (saved != null) return clampFontScale(saved);
+  } catch (_) {
+    /* ignore */
+  }
+  return FONT_SCALE_DEFAULT;
+}
+
+if (fontDecBtn) fontDecBtn.addEventListener("click", () => applyFontScale(fontScale - FONT_SCALE_STEP, true));
+if (fontIncBtn) fontIncBtn.addEventListener("click", () => applyFontScale(fontScale + FONT_SCALE_STEP, true));
+if (fontResetBtn) fontResetBtn.addEventListener("click", () => applyFontScale(FONT_SCALE_DEFAULT, true));
+// 他のタブで変えたら追従
+window.addEventListener("storage", (e) => {
+  if (e.key === FONT_SCALE_STORAGE_KEY) applyFontScale(e.newValue, false);
+});
+applyFontScale(loadFontScale(), false);
+
 renderHelperModes();
-selected = [];
-saveKnown();
-renderBubbles();
-restoreKnownFile();
+if (HAS_PARSER) {
+  selected = [];
+  saveKnown();
+  renderBubbles();
+  restoreKnownFile();
+}

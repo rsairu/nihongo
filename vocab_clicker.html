@@ -12,6 +12,8 @@
     <a class="about-link" href="#about" id="aboutLink">about</a>
     <button id="knownFileBtn" class="minor known-file-btn known-unset" type="button" title="このファイルにある単語は解析結果から除かれます">known_words.json を開く</button>
     <input id="knownFileInput" type="file" accept=".json,application/json" hidden />
+    <button id="gakuseiBtn" class="minor gakusei-btn" type="button" aria-pressed="false" title="説明・意味・例文をすべて小学6年生が読めるやさしさにします"><span class="gakusei-cap" aria-hidden="true">🎓</span>小6モード</button>
+    <a class="page-link" href="lookup.html">調べる →</a>
     <a class="page-link" href="ondoku.html">音読タイマー →</a>
     <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
       <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
@@ -119,6 +121,7 @@
       <span><kbd>選択</kbd>調べる</span>
       <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語へ</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 辞書</span>
+      <span><kbd>🎓 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
     </div>
     <p class="lede">「known_words.json を開く」でファイルを選ぶと、解析のたびにそのファイルを読み直し、完全一致する単語をバブルから除きます。</p>
     <form method="dialog">
@@ -127,6 +130,7 @@
   </dialog>
 
   <script src="config.js"></script>
+  <script src="gakusei.js"></script>
   <script src="vocab_clicker.js"></script>
 </body>
 </html>

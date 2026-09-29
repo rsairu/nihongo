@@ -1,0 +1,300 @@
+/* lookup.html: 調べるパネルをページ全体に（枠・背景なし）。vocab_clicker.css の上に重ねる */
+
+body.lookup-body {
+  padding-bottom: 24px;
+}
+
+.page-links {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-self: center;
+}
+
+.page-links .page-link {
+  margin-left: 0;
+}
+
+.lookup-box.lookup-page {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 60rem;
+  margin: 8px auto 0;
+  padding: 0;
+  contain: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.lookup-box.lookup-page.pulse {
+  animation: none;
+}
+
+.lookup-box.lookup-page.drop-target {
+  background: transparent;
+  outline: 2px dashed var(--accent);
+  outline-offset: 8px;
+  border-radius: 12px;
+}
+
+/* モードタブ */
+.lookup-page #helperModes {
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.lookup-page #helperModes {
+  justify-content: center;
+}
+
+/* アイコンを上、ラベルを下。幅と高さをそろえて5つを同じ大きさに */
+.lookup-page .helper-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  flex: 0 0 6.5rem;
+  width: 6.5rem;
+  padding: 10px 6px 8px;
+  font-size: 0.95rem;
+  line-height: 1.2;
+  border-radius: 14px;
+}
+
+.lookup-page .helper-mode .mode-icon {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.lookup-page .helper-mode:hover .mode-icon,
+.lookup-page .helper-mode.active .mode-icon {
+  opacity: 1;
+}
+
+.lookup-page .helper-mode.active .mode-icon {
+  transform: scale(1.06);
+}
+
+.lookup-page .helper-mode .mode-label {
+  white-space: nowrap;
+}
+
+/* 入力欄 */
+.lookup-page .lookup-row {
+  gap: 10px;
+}
+
+.lookup-page #helperInput {
+  padding: 12px 20px;
+  font-size: 1.15rem;
+  background: var(--card);
+}
+
+.lookup-page #helperBtn {
+  padding: 10px 24px;
+  font-size: 1rem;
+}
+
+.lookup-page #helperHistory {
+  margin-top: 14px;
+}
+
+.lookup-page .helper-tab {
+  max-width: 240px;
+  padding: 4px 12px;
+  font-size: 0.88rem;
+}
+
+/* 結果 */
+.lookup-page #helperResult {
+  margin-top: 22px;
+}
+
+.lookup-page #helperWord {
+  font-size: 0.95rem;
+}
+
+.lookup-page #helperKana {
+  margin-top: 4px;
+  font-size: 1.8rem;
+}
+
+.lookup-page #helperDef {
+  margin-top: 12px;
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+.lookup-page #helperEn {
+  font-size: 1.02rem;
+}
+
+.lookup-page #helperEnBtn,
+.lookup-page #helperSentenceEnBtn,
+.lookup-page #helperSentenceRegenBtn {
+  margin-top: 12px;
+  padding: 6px 14px;
+  font-size: 0.88rem;
+}
+
+.lookup-page .helper-sentence-actions #helperSentenceEnBtn,
+.lookup-page .helper-sentence-actions #helperSentenceRegenBtn {
+  margin-top: 0;
+}
+
+.lookup-page #helperKanjiForm {
+  font-size: 2.6rem;
+}
+
+.lookup-page .kanji-usage {
+  margin-top: 12px;
+  font-size: 0.95rem;
+}
+
+.lookup-page .kanji-pip {
+  width: 22px;
+  height: 10px;
+}
+
+.lookup-page #helperKanjiNote {
+  margin-top: 12px;
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.lookup-page #helperSentence {
+  margin-top: 6px;
+  font-size: 1.4rem;
+  line-height: 1.8;
+}
+
+.lookup-page #helperSentenceEn {
+  font-size: 1.02rem;
+}
+
+.lookup-page .helper-sentence-actions {
+  margin-top: 12px;
+}
+
+.lookup-page #helperSentencePrev {
+  margin-top: 18px;
+}
+
+.lookup-page .helper-sentence-prev {
+  padding: 8px 12px;
+  font-size: 0.98rem;
+}
+
+.lookup-page .helper-sentence-prev-label,
+.lookup-page .thes-label {
+  font-size: 0.85rem;
+}
+
+.lookup-page .thes-section + .thes-section {
+  margin-top: 18px;
+}
+
+.lookup-page .thes-list {
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.lookup-page .thes-chip {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--card);
+}
+
+.lookup-page .thes-word {
+  font-size: 1.2rem;
+}
+
+.lookup-page .thes-reading,
+.lookup-page .thes-gloss {
+  font-size: 0.88rem;
+}
+
+.lookup-page .thes-empty {
+  font-size: 1rem;
+}
+
+.lookup-page[data-ui-tab="handwriting"] #helperResult {
+  margin-top: 0;
+}
+
+/* 手書き: 横長の大きいパッド、候補は右 */
+.lookup-page #helperHandwritingBlock {
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.lookup-page .handwriting-pad {
+  flex: 0 1 44rem;
+  height: clamp(12rem, 45vh, 24rem);
+}
+
+.lookup-page #handwritingCanvas {
+  border-radius: 12px;
+}
+
+.lookup-page .handwriting-candidates {
+  flex: 1 1 10rem;
+  max-height: clamp(12rem, 45vh, 24rem);
+  gap: 8px;
+}
+
+.lookup-page .handwriting-candidate {
+  padding: 6px 14px;
+  min-width: 3rem;
+  border-radius: 8px;
+  font-size: 1.6rem;
+}
+
+.lookup-page .handwriting-status {
+  font-size: 0.92rem;
+}
+
+@media (max-width: 720px) {
+  .lookup-page .helper-mode {
+    flex-basis: 3.9rem;
+    width: 3.9rem;
+    padding: 8px 2px 6px;
+    font-size: 0.72rem;
+  }
+
+  .lookup-page #helperModes {
+    gap: 4px;
+  }
+
+  .lookup-page .helper-mode .mode-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .page-links {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .lookup-page #helperHandwritingBlock {
+    flex-wrap: wrap;
+  }
+
+  .lookup-page .handwriting-pad {
+    flex-basis: 100%;
+  }
+
+  .lookup-page .handwriting-candidates {
+    max-height: none;
+  }
+}

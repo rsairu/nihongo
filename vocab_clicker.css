@@ -80,6 +80,10 @@ h1 {
   white-space: nowrap;
 }
 
+.page-link + .page-link {
+  margin-left: 0;
+}
+
 .page-link:hover {
   color: var(--ink);
   border-color: var(--ink);
@@ -229,6 +233,116 @@ button.minor.known-error {
   align-self: center;
   padding: 4px 12px;
   font-size: 0.82rem;
+}
+
+.gakusei-btn {
+  align-self: center;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+button.minor.gakusei-btn.gakusei-on {
+  color: #2f6b3a;
+  background: #e2efe0;
+  border-style: solid;
+  border-color: #9cc49a;
+}
+
+.gakusei-cap {
+  display: inline-block;
+  margin-right: 4px;
+  filter: grayscale(1);
+  opacity: 0.55;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.gakusei-on .gakusei-cap {
+  filter: none;
+  opacity: 1;
+}
+
+.gakusei-pop .gakusei-cap {
+  animation: gakusei-cap-toss 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
+}
+
+@keyframes gakusei-cap-toss {
+  0% { transform: translateY(0) rotate(0); }
+  40% { transform: translateY(-7px) rotate(-18deg); }
+  70% { transform: translateY(1px) rotate(6deg); }
+  100% { transform: translateY(0) rotate(0); }
+}
+
+.gakusei-toast {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 18px 10px 12px;
+  border: 1px solid #9cc49a;
+  border-radius: 999px;
+  background: #f1f8ef;
+  color: #1f4d28;
+  box-shadow: 0 8px 24px rgba(31, 77, 40, 0.16);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -16px) scale(0.96);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.gakusei-toast.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0) scale(1);
+  animation: gakusei-toast-in 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+
+@keyframes gakusei-toast-in {
+  0% { opacity: 0; transform: translate(-50%, -16px) scale(0.9); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.gakusei-toast-cap {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.gakusei-toast.show .gakusei-toast-cap {
+  animation: gakusei-cap-toss 0.7s 0.15s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+
+.gakusei-toast-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.gakusei-toast-text strong {
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gakusei-pop .gakusei-cap,
+  .gakusei-toast.show,
+  .gakusei-toast.show .gakusei-toast-cap {
+    animation: none;
+  }
+  .gakusei-toast {
+    transition: opacity 0.2s;
+    transform: translate(-50%, 0);
+  }
+}
+
+button.minor.gakusei-btn.gakusei-on:hover {
+  color: #1f4d28;
+  border-color: #2f6b3a;
 }
 
 button.minor.known-unset {
