@@ -39,10 +39,14 @@
         <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji">漢字表記</button>
         <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence">例文</button>
         <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes">類義語</button>
+        <button id="helperModeJiten" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten">漢字辞典</button>
         <button id="helperModeHandwriting" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperHandwritingBlock" data-mode="handwriting">手書き</button>
       </div>
       <form id="helperForm" class="lookup-row">
-        <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" />
+        <span class="helper-input-wrap">
+          <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" />
+          <button id="helperClear" class="helper-clear" type="button" aria-label="入力をクリア" title="クリア (Esc)">&times;</button>
+        </span>
         <button id="helperBtn" type="submit">調べる</button>
       </form>
       <div id="helperHistory">
@@ -85,12 +89,28 @@
             <div id="helperOpposite" class="thes-list"></div>
           </div>
         </div>
+        <div id="helperJitenBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeJiten">
+          <div id="helperJitenList"></div>
+        </div>
         <div id="helperHandwritingBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeHandwriting">
           <div class="handwriting-pad">
             <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
-            <button id="handwritingClearBtn" class="minor" type="button" hidden>クリア</button>
+            <div class="handwriting-pad-actions">
+              <button id="handwritingComposeBtn" class="minor" type="button" aria-pressed="false" title="オンの間は候補をクリックすると下書きに追加され、画面がクリアされます（辞書は開きません）">＋ 追加</button>
+              <button id="handwritingClearBtn" class="minor" type="button" hidden>クリア</button>
+            </div>
           </div>
-          <div id="handwritingCandidates" class="handwriting-candidates" aria-live="polite" aria-label="認識候補"></div>
+          <div class="handwriting-side">
+            <div id="handwritingCompose" class="handwriting-compose" hidden>
+              <span id="handwritingDraft" class="handwriting-draft" aria-live="polite" aria-label="下書き"></span>
+              <div class="handwriting-compose-actions">
+                <button id="handwritingDraftBackBtn" class="minor" type="button" title="最後に追加した文字を消す" aria-label="最後の文字を消す">⌫</button>
+                <button id="handwritingDraftCancelBtn" class="minor" type="button" title="下書きを消して追加モードを終了" aria-label="下書きを消す">✕</button>
+                <button id="handwritingDraftLookupBtn" type="button" title="下書き全体を辞書で調べる">調べる</button>
+              </div>
+            </div>
+            <div id="handwritingCandidates" class="handwriting-candidates" aria-live="polite" aria-label="認識候補"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -121,6 +141,7 @@
       <span><kbd>選択</kbd>調べる</span>
       <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語へ</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 辞書</span>
+      <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>
       <span><kbd>🎓 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
     </div>
     <p class="lede">「known_words.json を開く」でファイルを選ぶと、解析のたびにそのファイルを読み直し、完全一致する単語をバブルから除きます。</p>

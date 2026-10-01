@@ -1,5 +1,5 @@
 const CLAUDE_MODEL = "claude-haiku-4-5";
-const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5"; // kanji usage + example sentences: heavier judgment calls
+const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5"; // kanji usage, example sentences, kanji dictionary: heavier judgment calls
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
 const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale";
 const GAKUSEI_STORAGE_KEY = "vocab-clicker-gakusei-mode";
@@ -61,13 +61,18 @@ const helperSentencePrev = document.getElementById("helperSentencePrev");
 const helperThesBlock = document.getElementById("helperThesBlock");
 const helperSimilar = document.getElementById("helperSimilar");
 const helperOpposite = document.getElementById("helperOpposite");
+const helperJitenBlock = document.getElementById("helperJitenBlock");
+const helperJitenList = document.getElementById("helperJitenList");
 const lookupBox = document.querySelector(".lookup-box");
 // lookup.html は調べるパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
 const HAS_PARSER = Boolean(inputEl && bubblesEl);
 const HELPER_HISTORY_LIMIT = 10;
-const HELPER_MODES = ["dict", "kanji", "sentence", "thes"];
-const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語" };
-const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義" };
+const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "jiten"];
+const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", jiten: "漢字辞典" };
+const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", jiten: "字典" };
+// 漢字辞典: 入力の中の漢字を1字ずつ引く（1字1リクエスト、並列）。キャッシュも1字単位なので 景色 と 風景 で 景 を共有する。
+const JITEN_MAX_CHARS = 4;
+const JITEN_MAX_WORDS = 6;
 const KANJI_USAGE_LABELS = ["なし", "まれ", "かな優先", "どちらも", "漢字優先"];
 const KANJI_METER_STEPS = 4;
 const VOCAB_DRAG_TYPE = "application/x-vocab-item";
@@ -95,13 +100,15 @@ let lastExcludedCount = 0;
 // 小6モード (gakusei_mode): 返ってくる説明をすべて小学6年生レベルにする。レベルごとにキャッシュを分ける。
 let gakuseiMode = false;
 function createCacheBank() {
-  return { sentence: {}, dict: {}, kanji: {}, thes: {} };
+  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {} };
 }
 const cacheBanks = { standard: createCacheBank(), gakusei: createCacheBank() };
 let sentenceCache = cacheBanks.standard.sentence;
 let dictCache = cacheBanks.standard.dict;
 let kanjiCache = cacheBanks.standard.kanji;
 let thesCache = cacheBanks.standard.thes;
+/** @type {Record<string, object>} one entry per kanji character */
+let jitenCache = cacheBanks.standard.jiten;
 /** @type {AbortController | null} */
 let helperEnAbort = null;
 let helperEnRequestId = 0;
@@ -111,10 +118,10 @@ let helperEnShown = false;
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
-/** @type {"dict" | "kanji" | "sentence" | "thes"} */
+/** @type {"dict" | "kanji" | "sentence" | "thes" | "jiten"} */
 let helperMode = "dict";
 let helperSentenceEnShown = false;
-/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object}[]} */
+/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, jiten: object}[]} */
 let helperHistory = [];
 
 function extractNewVocabBlock(raw) {
@@ -457,6 +464,93 @@ async function fetchThesEntry(query, context, signal) {
   return parseThesResponse(await requestClaudeText(buildThesPrompt(query, context), 280, signal));
 }
 
+function jitenChars(query) {
+  const out = [];
+  for (const ch of String(query || "")) {
+    if (ch === "々" || ch === "〆" || ch === "ヶ") continue; // 踊り字などは字典の見出しにしない
+    if (isKanjiChar(ch) && !out.includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+function buildJitenPrompt(ch, query) {
+  const lines = [
+    "Kanji dictionary entry for this single kanji, as used in modern Japanese.",
+    "Output exactly 6 lines and nothing else:",
+    "字: <the kanji>",
+    "意味: <its general meaning(s) in short Japanese; separate senses with 、>",
+    "EN: <2-4 short English keywords>",
+    "音: <on'yomi in katakana, separated by 、 ; なし if none>",
+    "訓: <kun'yomi in hiragana, separated by 、 ; mark okurigana with a dot, e.g. い.きる ; なし if none>",
+    "語: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
+    "",
+    "Readings: list the standard (常用) readings first, most common first; add a rare reading only if it is well known.",
+    "語: 4 to " + JITEN_MAX_WORDS + " common words that contain this kanji, most common first, mixing on and kun readings when both are common. Each word must contain the kanji. Short meanings in Japanese.",
+    "No quotes, furigana in parentheses, or extra commentary.",
+    "",
+    "Kanji: " + ch
+  ];
+  if (query && query !== ch) lines.push("(Looked up from the word: " + query + ")");
+  return lines.join("\n");
+}
+
+function splitReadings(raw) {
+  const text = stripWrappingQuotes(raw).trim();
+  if (!text || isNoneList(text)) return [];
+  return text
+    .split(/[、,，;；\/／・\s]+/)
+    .map((r) => stripWrappingQuotes(r).replace(/[（(].*?[）)]/g, "").trim())
+    .filter((r) => r && !isNoneList(r) && /[぀-ヿ]/.test(r));
+}
+
+function parseJitenResponse(raw, ch) {
+  const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const pick = (re) => {
+    const m = text.match(re);
+    return m ? m[1].trim() : "";
+  };
+  const meaning = stripWrappingQuotes(pick(/^\s*(?:意味|meaning)\s*[:：]\s*(.+)$/im));
+  const en = stripWrappingQuotes(pick(/^\s*(?:EN|英語?)\s*[:：]\s*(.+)$/im));
+  let on = splitReadings(pick(/^\s*(?:音読み|音|on(?:'?yomi)?)\s*[:：]\s*(.+)$/im)).map((r) =>
+    r.replace(/[ぁ-ゖ]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 0x60))
+  );
+  let kun = splitReadings(pick(/^\s*(?:訓読み|訓|kun(?:'?yomi)?)\s*[:：]\s*(.+)$/im)).map((r) =>
+    r.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[．。·]/g, ".")
+  );
+  const words = parseThesList(pick(/^\s*(?:語|熟語|words?)\s*[:：]\s*(.+)$/im))
+    .filter((w) => w.word.includes(ch))
+    .slice(0, JITEN_MAX_WORDS);
+  const dedupe = (list) => list.filter((r, i) => list.indexOf(r) === i);
+  on = dedupe(on);
+  kun = dedupe(kun);
+  if (!meaning && !on.length && !kun.length && !words.length) throw new Error("empty");
+  return { char: ch, meaning, en, on, kun, words };
+}
+
+function jitenNoKanjiError() {
+  const err = new Error("nokanji");
+  err.userMessage = "漢字が含まれていません。漢字を入力してください";
+  return err;
+}
+
+async function fetchJitenEntry(query, signal) {
+  const chars = jitenChars(query);
+  if (!chars.length) throw jitenNoKanjiError();
+  const shown = chars.slice(0, JITEN_MAX_CHARS);
+  const kanji = await Promise.all(
+    shown.map(async (ch) => {
+      if (jitenCache[ch]) return jitenCache[ch];
+      const entry = parseJitenResponse(
+        await requestClaudeText(buildJitenPrompt(ch, query), 480, signal, 0, CLAUDE_MODEL_SONNET),
+        ch
+      );
+      jitenCache[ch] = entry;
+      return entry;
+    })
+  );
+  return { kanji, skipped: chars.length - shown.length };
+}
+
 function apiKey() {
   return typeof CLAUDE_API_KEY === "string" ? CLAUDE_API_KEY : "";
 }
@@ -731,7 +825,8 @@ function createHelperItem(query, context) {
     dict: createModeState(),
     kanji: createModeState(),
     sentence: createModeState(),
-    thes: createModeState()
+    thes: createModeState(),
+    jiten: createModeState()
   };
 }
 
@@ -744,6 +839,10 @@ function modeState(item, mode) {
   if (mode === "thes") {
     if (!item.thes) item.thes = createModeState();
     return item.thes;
+  }
+  if (mode === "jiten") {
+    if (!item.jiten) item.jiten = createModeState();
+    return item.jiten;
   }
   return item.dict;
 }
@@ -777,6 +876,13 @@ function cachedModeEntry(mode, query) {
     return sentences && sentences.length ? { sentences, index: sentences.length - 1 } : null;
   }
   if (mode === "thes") return thesCache[query];
+  if (mode === "jiten") {
+    const chars = jitenChars(query);
+    if (!chars.length) return null;
+    const shown = chars.slice(0, JITEN_MAX_CHARS);
+    if (!shown.every((ch) => jitenCache[ch])) return null;
+    return { kanji: shown.map((ch) => jitenCache[ch]), skipped: chars.length - shown.length };
+  }
   return dictCache[dictCacheKey(query, "")];
 }
 
@@ -784,7 +890,9 @@ function cacheModeEntry(mode, query, entry) {
   if (mode === "kanji") kanjiCache[query] = entry;
   else if (mode === "sentence") sentenceCache[query] = (entry && entry.sentences) || [];
   else if (mode === "thes") thesCache[query] = entry;
-  else dictCache[dictCacheKey(query, "")] = entry;
+  else if (mode === "jiten") {
+    for (const k of (entry && entry.kanji) || []) jitenCache[k.char] = k;
+  } else dictCache[dictCacheKey(query, "")] = entry;
 }
 
 function setHelperEnVisible(shown) {
@@ -1013,6 +1121,162 @@ function renderThesEntry(entry) {
   renderThesList(helperOpposite, (entry && entry.opposite) || []);
 }
 
+function appendKunReading(container, reading) {
+  const dot = reading.indexOf(".");
+  if (dot < 0) {
+    container.append(document.createTextNode(reading));
+    return;
+  }
+  container.append(document.createTextNode(reading.slice(0, dot)));
+  const okuri = document.createElement("span");
+  okuri.className = "jiten-okuri";
+  okuri.textContent = reading.slice(dot + 1).replace(/\./g, "");
+  container.append(okuri);
+}
+
+function jitenReadingRow(label, readings, isKun) {
+  const row = document.createElement("div");
+  row.className = "jiten-reading-row";
+  const tag = document.createElement("span");
+  tag.className = "jiten-tag";
+  tag.textContent = label;
+  row.append(tag);
+  const list = document.createElement("span");
+  list.className = "jiten-readings";
+  if (!readings.length) {
+    list.classList.add("jiten-none");
+    list.textContent = "なし";
+  }
+  readings.forEach((r, i) => {
+    const one = document.createElement("span");
+    one.className = "jiten-reading";
+    if (isKun) appendKunReading(one, r);
+    else one.textContent = r;
+    list.append(one);
+    if (i < readings.length - 1) list.append(document.createTextNode("、"));
+  });
+  row.append(list);
+  return row;
+}
+
+function renderJitenWordChip(entry, ch) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "thes-chip jiten-word";
+  const word = document.createElement("span");
+  word.className = "thes-word";
+  for (const c of entry.word) {
+    if (c === ch) {
+      const mark = document.createElement("span");
+      mark.className = "jiten-hit";
+      mark.textContent = c;
+      word.append(mark);
+    } else {
+      word.append(document.createTextNode(c));
+    }
+  }
+  btn.append(word);
+  if (entry.reading) {
+    const reading = document.createElement("span");
+    reading.className = "thes-reading";
+    reading.textContent = entry.reading;
+    btn.append(reading);
+  }
+  if (entry.gloss) {
+    const gloss = document.createElement("span");
+    gloss.className = "thes-gloss";
+    gloss.textContent = entry.gloss;
+    btn.append(gloss);
+  }
+  btn.title = "辞書で調べる: " + [entry.word, entry.reading].filter(Boolean).join(" ");
+  btn.addEventListener("click", () => {
+    helperLookup(entry.word, {
+      mode: "dict",
+      context: { reading: entry.reading || "", meaning: entry.gloss || "" }
+    });
+  });
+  return btn;
+}
+
+function renderJitenCard(k) {
+  const card = document.createElement("section");
+  card.className = "jiten-card";
+
+  const head = document.createElement("div");
+  head.className = "jiten-head";
+  const glyph = document.createElement("div");
+  glyph.className = "jiten-char";
+  glyph.lang = "ja";
+  glyph.textContent = k.char;
+  glyph.title = "クリックでコピー";
+  glyph.addEventListener("click", () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(k.char).catch(() => {});
+  });
+  head.append(glyph);
+
+  const info = document.createElement("div");
+  info.className = "jiten-info";
+  if (k.meaning) {
+    const meaning = document.createElement("div");
+    meaning.className = "jiten-meaning";
+    meaning.textContent = k.meaning;
+    info.append(meaning);
+  }
+  if (k.en) {
+    const en = document.createElement("div");
+    en.className = "jiten-en";
+    en.textContent = k.en;
+    info.append(en);
+  }
+  info.append(jitenReadingRow("音", k.on || [], false));
+  info.append(jitenReadingRow("訓", k.kun || [], true));
+  head.append(info);
+  card.append(head);
+
+  const words = k.words || [];
+  if (words.length) {
+    const label = document.createElement("div");
+    label.className = "thes-label";
+    label.textContent = "よく使う言葉";
+    card.append(label);
+    const list = document.createElement("div");
+    list.className = "thes-list jiten-words";
+    for (const w of words) list.append(renderJitenWordChip(w, k.char));
+    card.append(list);
+  }
+  return card;
+}
+
+function renderJitenMessage(text) {
+  helperJitenList.replaceChildren();
+  const note = document.createElement("div");
+  note.className = "jiten-message";
+  note.textContent = text;
+  helperJitenList.append(note);
+}
+
+function renderJitenPending(text) {
+  helperResult.classList.remove("error");
+  renderJitenMessage(text);
+}
+
+function renderJitenError(message) {
+  helperResult.classList.add("error");
+  renderJitenMessage(message);
+}
+
+function renderJitenEntry(entry) {
+  helperResult.classList.remove("error");
+  helperJitenList.replaceChildren();
+  for (const k of (entry && entry.kanji) || []) helperJitenList.append(renderJitenCard(k));
+  if (entry && entry.skipped > 0) {
+    const more = document.createElement("div");
+    more.className = "jiten-message";
+    more.textContent = "ほかに " + entry.skipped + " 字あります（最初の " + JITEN_MAX_CHARS + " 字だけ表示）";
+    helperJitenList.append(more);
+  }
+}
+
 function renderHelperModes() {
   lookupBox.dataset.mode = helperMode;
   if (handwritingOpen) lookupBox.dataset.uiTab = HANDWRITING_TAB;
@@ -1034,6 +1298,7 @@ function paintHelperItem(item) {
   helperKanjiBlock.classList.toggle("visible", helperMode === "kanji");
   helperSentenceBlock.classList.toggle("visible", helperMode === "sentence");
   helperThesBlock.classList.toggle("visible", helperMode === "thes");
+  helperJitenBlock.classList.toggle("visible", helperMode === "jiten");
   renderHelperModes();
 
   const st = modeState(item, helperMode);
@@ -1050,6 +1315,10 @@ function paintHelperItem(item) {
     if (st.error) renderThesError(st.error);
     else if (st.entry) renderThesEntry(st.entry);
     else renderThesPending("…");
+  } else if (helperMode === "jiten") {
+    if (st.error) renderJitenError(st.error);
+    else if (st.entry) renderJitenEntry(st.entry);
+    else renderJitenPending("…");
   } else if (st.error) {
     renderSentenceError(st.error);
   } else if (st.entry) {
@@ -1133,6 +1402,8 @@ async function runHelperFetch(item, mode, options) {
       parsed = await fetchSentenceEntry(item.query, item.context, sentenceCache[item.query] || [], controller.signal);
     } else if (mode === "thes") {
       parsed = await fetchThesEntry(item.query, item.context, controller.signal);
+    } else if (mode === "jiten") {
+      parsed = await fetchJitenEntry(item.query, controller.signal);
     } else {
       parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal);
     }
@@ -1144,6 +1415,7 @@ async function runHelperFetch(item, mode, options) {
       mode === "kanji" ? "漢字表記を読み込めませんでした"
       : mode === "sentence" ? "例文を読み込めませんでした"
       : mode === "thes" ? "類義語を読み込めませんでした"
+      : mode === "jiten" ? (err && err.userMessage) || "漢字辞典を読み込めませんでした"
       : "読み込めませんでした";
     if (keepSentence) {
       finishHelperFetch(item, mode, fetchId, st.entry, "");
@@ -1648,6 +1920,22 @@ helperForm.addEventListener("submit", (e) => {
   helperLookup();
 });
 
+// 入力欄のクリア: × ボタン / Esc キー（表示は CSS の :placeholder-shown で制御）
+const helperClear = document.getElementById("helperClear");
+function clearHelperInput() {
+  helperInput.value = "";
+  helperInput.focus();
+}
+if (helperClear) {
+  helperClear.addEventListener("click", clearHelperInput);
+}
+helperInput.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && helperInput.value && !e.isComposing) {
+    e.preventDefault();
+    clearHelperInput();
+  }
+});
+
 for (const btn of helperModes.querySelectorAll(".helper-mode")) {
   btn.addEventListener("click", () => setHelperMode(btn.dataset.mode));
   if (HELPER_MODES.includes(btn.dataset.mode)) wireDropZone(btn, btn.dataset.mode);
@@ -1659,6 +1947,12 @@ const handwritingCanvas = document.getElementById("handwritingCanvas");
 const handwritingCtx = handwritingCanvas.getContext("2d");
 const handwritingClearBtn = document.getElementById("handwritingClearBtn");
 const handwritingCandidates = document.getElementById("handwritingCandidates");
+const handwritingComposeBtn = document.getElementById("handwritingComposeBtn");
+const handwritingCompose = document.getElementById("handwritingCompose");
+const handwritingDraft = document.getElementById("handwritingDraft");
+const handwritingDraftBackBtn = document.getElementById("handwritingDraftBackBtn");
+const handwritingDraftCancelBtn = document.getElementById("handwritingDraftCancelBtn");
+const handwritingDraftLookupBtn = document.getElementById("handwritingDraftLookupBtn");
 const HANDWRITING_HINT = "ペンで書くと候補が表示されます";
 let handwritingStrokes = []; // [[{x, y, t}, ...], ...]  x/y は CSS px
 let handwritingCurrentStroke = null;
@@ -1667,6 +1961,9 @@ let handwritingStartTime = 0;
 let handwritingRequestId = 0;
 let handwritingAutoTimer = 0;
 let handwritingSize = { w: 360, h: 160 };
+// 追加モード: 候補クリックで下書きに追加 → キャンバスをクリア（辞書は開かない）
+let handwritingComposing = false;
+let handwritingDraftParts = []; // 追加した候補（⌫ で1つずつ戻せる）
 
 // 表示サイズに合わせてキャンバスの解像度を更新（パネルの高さに追従、歪み防止）
 function syncHandwritingCanvasSize() {
@@ -1732,7 +2029,7 @@ function renderHandwritingCandidates(candidates) {
     btn.type = "button";
     btn.className = "handwriting-candidate";
     btn.textContent = text;
-    btn.title = `「${text}」を辞書で調べる`;
+    btn.title = handwritingComposing ? `「${text}」を下書きに追加` : `「${text}」を辞書で調べる`;
     btn.addEventListener("click", () => chooseHandwritingCandidate(text));
     handwritingCandidates.append(btn);
   }
@@ -1755,7 +2052,45 @@ function clearHandwriting() {
 
 function chooseHandwritingCandidate(text) {
   clearHandwriting();
+  if (handwritingComposing) {
+    handwritingDraftParts.push(text);
+    renderHandwritingDraft();
+    return;
+  }
   helperLookup(text, { mode: "dict" });
+  pulseLookupBox();
+}
+
+function renderHandwritingDraft() {
+  handwritingComposeBtn.setAttribute("aria-pressed", String(handwritingComposing));
+  handwritingComposeBtn.classList.toggle("active", handwritingComposing);
+  handwritingCompose.hidden = !handwritingComposing;
+  const draft = handwritingDraftParts.join("");
+  handwritingDraft.textContent = draft;
+  handwritingDraft.classList.toggle("empty", !draft);
+  handwritingDraft.dataset.placeholder = "候補をクリックすると下書きに追加されます";
+  handwritingDraftBackBtn.disabled = !draft;
+  handwritingDraftLookupBtn.disabled = !draft;
+  for (const btn of handwritingCandidates.querySelectorAll(".handwriting-candidate")) {
+    btn.title = handwritingComposing ? `「${btn.textContent}」を下書きに追加` : `「${btn.textContent}」を辞書で調べる`;
+  }
+}
+
+function setHandwritingComposing(on) {
+  handwritingComposing = Boolean(on);
+  if (!handwritingComposing) handwritingDraftParts = [];
+  renderHandwritingDraft();
+}
+
+function lookupHandwritingDraft() {
+  // 書きかけの文字がある場合は、いまの第1候補も下書きに含めてから調べる
+  const pending = handwritingCandidates.querySelector(".handwriting-candidate");
+  if (pending && handwritingStrokes.length) handwritingDraftParts.push(pending.textContent);
+  const draft = handwritingDraftParts.join("");
+  if (!draft) return;
+  clearHandwriting();
+  setHandwritingComposing(false);
+  helperLookup(draft, { mode: "dict" });
   pulseLookupBox();
 }
 
@@ -1862,6 +2197,14 @@ handwritingCanvas.addEventListener("pointermove", (e) => {
 handwritingCanvas.addEventListener("pointerup", endHandwritingStroke);
 handwritingCanvas.addEventListener("pointercancel", endHandwritingStroke);
 handwritingClearBtn.addEventListener("click", clearHandwriting);
+handwritingComposeBtn.addEventListener("click", () => setHandwritingComposing(!handwritingComposing));
+handwritingDraftBackBtn.addEventListener("click", () => {
+  handwritingDraftParts.pop();
+  renderHandwritingDraft();
+});
+handwritingDraftCancelBtn.addEventListener("click", () => setHandwritingComposing(false));
+handwritingDraftLookupBtn.addEventListener("click", lookupHandwritingDraft);
+renderHandwritingDraft();
 new ResizeObserver(syncHandwritingCanvasSize).observe(handwritingCanvas);
 setHandwritingStatus("");
 
@@ -1962,6 +2305,7 @@ function setGakuseiMode(enabled, save) {
   dictCache = bank.dict;
   kanjiCache = bank.kanji;
   thesCache = bank.thes;
+  jitenCache = bank.jiten;
   renderGakuseiBtn();
 
   if (helperEnAbort) helperEnAbort.abort();

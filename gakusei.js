@@ -11,7 +11,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   const PARAM = "gakusei_mode";
 
-  // Injected as the system prompt. Every feature (辞書・漢字表記・例文・類義語・英訳) builds its own
+  // Injected as the system prompt. Every feature (辞書・漢字表記・例文・類義語・漢字辞典・英訳) builds its own
   // strict line format in the user message, so this only changes the *register* of explanatory text
   // and explicitly protects the data fields the client parsers depend on.
   const SYSTEM_PROMPT = [
@@ -25,6 +25,7 @@
     "Never simplify or replace these; they are data, not explanation:",
     "- the word being asked about, its reading, and its kanji spelling (write the real spelling even if it is hard);",
     "- synonym/antonym headwords (must be real words; only their short meanings become simpler);",
+    "- in a kanji dictionary entry: the kanji, its on/kun readings, and the listed words containing it (real, common words; only their short meanings become simpler);",
     "- in example sentences, the target word itself, written exactly as given;",
     "- numbers, scores, and fixed category values such as kana / either / kanji.",
     "",
