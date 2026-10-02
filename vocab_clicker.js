@@ -2029,7 +2029,7 @@ function renderHandwritingCandidates(candidates) {
     btn.type = "button";
     btn.className = "handwriting-candidate";
     btn.textContent = text;
-    btn.title = handwritingComposing ? `「${text}」を下書きに追加` : `「${text}」を辞書で調べる`;
+    btn.title = handwritingComposing ? `「${text}」を下書きに追加` : `「${text}」を${handwritingLookupLabel(text)}で調べる`;
     btn.addEventListener("click", () => chooseHandwritingCandidate(text));
     handwritingCandidates.append(btn);
   }
@@ -2050,6 +2050,17 @@ function clearHandwriting() {
   setHandwritingStatus("");
 }
 
+// 手書き結果の振り分け（クライアント側のみ・API不要）:
+// 漢字1文字だけ → 漢字辞典 (jiten) / それ以外（2文字以上、送り仮名つき、かなのみ）→ 通常の辞書 (dict)
+function handwritingLookupMode(text) {
+  const chars = Array.from(String(text).trim());
+  return chars.length === 1 && /[㐀-鿿豈-﫿]/.test(chars[0]) ? "jiten" : "dict";
+}
+
+function handwritingLookupLabel(text) {
+  return handwritingLookupMode(text) === "jiten" ? "漢字辞典" : "辞書";
+}
+
 function chooseHandwritingCandidate(text) {
   clearHandwriting();
   if (handwritingComposing) {
@@ -2057,7 +2068,7 @@ function chooseHandwritingCandidate(text) {
     renderHandwritingDraft();
     return;
   }
-  helperLookup(text, { mode: "dict" });
+  helperLookup(text, { mode: handwritingLookupMode(text) });
   pulseLookupBox();
 }
 
@@ -2072,7 +2083,7 @@ function renderHandwritingDraft() {
   handwritingDraftBackBtn.disabled = !draft;
   handwritingDraftLookupBtn.disabled = !draft;
   for (const btn of handwritingCandidates.querySelectorAll(".handwriting-candidate")) {
-    btn.title = handwritingComposing ? `「${btn.textContent}」を下書きに追加` : `「${btn.textContent}」を辞書で調べる`;
+    btn.title = handwritingComposing ? `「${btn.textContent}」を下書きに追加` : `「${btn.textContent}」を${handwritingLookupLabel(btn.textContent)}で調べる`;
   }
 }
 
@@ -2090,7 +2101,7 @@ function lookupHandwritingDraft() {
   if (!draft) return;
   clearHandwriting();
   setHandwritingComposing(false);
-  helperLookup(draft, { mode: "dict" });
+  helperLookup(draft, { mode: handwritingLookupMode(draft) });
   pulseLookupBox();
 }
 

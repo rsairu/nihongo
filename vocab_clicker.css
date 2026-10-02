@@ -1554,3 +1554,8 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   justify-content: flex-end;
   margin: 0;
 }
+
+/* 手書きタブは右端へ離し、「調べる」ボタンの真上に置く */
+#helperModes .helper-mode[data-mode="handwriting"] {
+  margin-left: auto;
+}

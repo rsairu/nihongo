@@ -47,7 +47,12 @@ body.lookup-body {
 }
 
 .lookup-page #helperModes {
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+/* 手書きタブは右端へ離し、「調べる」ボタンの真上に置く */
+.lookup-page #helperModes .helper-mode[data-mode="handwriting"] {
+  margin-left: auto;
 }
 
 /* アイコンを上、ラベルを下。幅と高さをそろえて6つを同じ大きさに */
