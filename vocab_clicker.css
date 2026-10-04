@@ -528,11 +528,6 @@ button:disabled {
   border-color: var(--jiten);
 }
 
-.helper-mode[data-mode="handwriting"].active {
-  background: var(--handwriting-soft);
-  border-color: var(--handwriting);
-}
-
 body.dragging-word .helper-mode {
   border-style: dashed;
 }
@@ -589,9 +584,50 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 
 .lookup-row {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin: 0;
   flex-shrink: 0;
+}
+
+/* 手書き入力のトグル（入力欄の左）。lookup.css で大きいサイズに上書き */
+.handwriting-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.handwriting-toggle:hover,
+.handwriting-toggle:focus-visible {
+  border-color: var(--handwriting);
+}
+
+.handwriting-toggle.active {
+  background: var(--handwriting-soft);
+  border-color: var(--handwriting);
+}
+
+.handwriting-toggle .mode-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  opacity: 0.85;
+}
+
+.handwriting-toggle:hover .mode-icon,
+.handwriting-toggle.active .mode-icon {
+  opacity: 1;
 }
 
 #helperInput {
@@ -915,10 +951,6 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   display: flex;
 }
 
-.lookup-box[data-ui-tab="handwriting"] #helperForm {
-  display: none;
-}
-
 #helperHandwritingBlock {
   flex: 1;
   min-height: 0;
@@ -928,7 +960,7 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .handwriting-pad {
   position: relative;
   flex: 0 1 360px;
-  min-width: 0;
+  min-width: 210px; /* 追加・戻す・クリアの3ボタンが収まる幅 */
   display: flex;
 }
 
@@ -949,7 +981,18 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   top: 8px;
   right: 8px;
   display: flex;
+  flex-wrap: nowrap;
   gap: 6px;
+}
+
+.handwriting-pad-actions button {
+  white-space: nowrap;
+  flex: none;
+}
+
+#handwritingUndoBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 #handwritingComposeBtn.active {
@@ -1553,9 +1596,4 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   display: flex;
   justify-content: flex-end;
   margin: 0;
-}
-
-/* 手書きタブは右端へ離し、「調べる」ボタンの真上に置く */
-#helperModes .helper-mode[data-mode="handwriting"] {
-  margin-left: auto;
 }

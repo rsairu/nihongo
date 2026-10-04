@@ -47,15 +47,10 @@ body.lookup-body {
 }
 
 .lookup-page #helperModes {
-  justify-content: flex-start;
+  justify-content: center;
 }
 
-/* 手書きタブは右端へ離し、「調べる」ボタンの真上に置く */
-.lookup-page #helperModes .helper-mode[data-mode="handwriting"] {
-  margin-left: auto;
-}
-
-/* アイコンを上、ラベルを下。幅と高さをそろえて6つを同じ大きさに */
+/* アイコンを上、ラベルを下。幅と高さをそろえて5つを同じ大きさに */
 .lookup-page .helper-mode {
   display: flex;
   flex-direction: column;
@@ -93,9 +88,51 @@ body.lookup-body {
   white-space: nowrap;
 }
 
-/* 入力欄 */
+/* 入力欄: 少し細くして中央に。左端に手書き入力のトグル（検索ではなく入力方法） */
 .lookup-page .lookup-row {
   gap: 10px;
+  align-items: center;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.lookup-page .handwriting-toggle {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.lookup-page .handwriting-toggle:hover,
+.lookup-page .handwriting-toggle:focus-visible {
+  border-color: var(--handwriting);
+}
+
+.lookup-page .handwriting-toggle.active {
+  background: var(--handwriting-soft);
+  border-color: var(--handwriting);
+}
+
+.lookup-page .handwriting-toggle .mode-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  opacity: 0.85;
+}
+
+.lookup-page .handwriting-toggle:hover .mode-icon,
+.lookup-page .handwriting-toggle.active .mode-icon {
+  opacity: 1;
 }
 
 .lookup-page #helperInput {
@@ -289,7 +326,7 @@ body.lookup-body {
 }
 
 .lookup-page[data-ui-tab="handwriting"] #helperResult {
-  margin-top: 0;
+  margin-top: 16px;
 }
 
 /* 手書き: 横長の大きいパッド、候補は右 */
@@ -353,6 +390,11 @@ body.lookup-body {
 
   .lookup-page #helperModes {
     gap: 4px;
+  }
+
+  .lookup-page .handwriting-toggle {
+    width: 42px;
+    height: 42px;
   }
 
   .lookup-page .helper-mode .mode-icon {

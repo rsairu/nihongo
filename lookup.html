@@ -30,9 +30,9 @@
       <button id="helperModeJiten" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten"><img class="mode-icon" src="icons_png/web/jiten.png" alt="" width="48" height="48" /><span class="mode-label">漢字辞典</span></button>
       <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
       <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
-      <button id="helperModeHandwriting" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperHandwritingBlock" data-mode="handwriting"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /><span class="mode-label">手書き</span></button>
     </div>
     <form id="helperForm" class="lookup-row">
+      <button id="helperModeHandwriting" class="handwriting-toggle" type="button" aria-pressed="false" aria-controls="helperHandwritingBlock" aria-label="手書き入力" title="手書き入力"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /></button>
       <span class="helper-input-wrap">
         <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" autofocus />
         <button id="helperClear" class="helper-clear" type="button" aria-label="入力をクリア" title="クリア (Esc)">&times;</button>
@@ -82,11 +82,12 @@
       <div id="helperJitenBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeJiten">
         <div id="helperJitenList"></div>
       </div>
-      <div id="helperHandwritingBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeHandwriting">
+      <div id="helperHandwritingBlock" class="helper-block" role="region" aria-label="手書き入力">
         <div class="handwriting-pad">
           <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
           <div class="handwriting-pad-actions">
             <button id="handwritingComposeBtn" class="minor" type="button" aria-pressed="false" title="オンの間は候補をクリックすると下書きに追加され、画面がクリアされます（辞書は開きません）">＋ 追加</button>
+            <button id="handwritingUndoBtn" class="minor" type="button" disabled title="最後の一画を取り消す（Ctrl+Z・直近5画まで）" aria-label="一画戻す">↶</button>
             <button id="handwritingClearBtn" class="minor" type="button" hidden>クリア</button>
           </div>
         </div>
@@ -114,6 +115,7 @@
       <span><kbd>類義語</kbd>クリックでその語を調べる</span>
       <span><kbd>漢字辞典</kbd>入力の漢字を1字ずつ（音読み・訓読み・意味・よく使う言葉）。言葉をクリックで辞書へ</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 辞書</span>
+      <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
       <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>
       <span><kbd>🎓 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
     </div>

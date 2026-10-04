@@ -42,6 +42,7 @@ const helperScrollRight = document.getElementById("helperScrollRight");
 const helperResult = document.getElementById("helperResult");
 const helperWord = document.getElementById("helperWord");
 const helperModes = document.getElementById("helperModes");
+const handwritingToggle = document.getElementById("helperModeHandwriting");
 const helperDictBlock = document.getElementById("helperDictBlock");
 const helperKanjiBlock = document.getElementById("helperKanjiBlock");
 const helperKana = document.getElementById("helperKana");
@@ -1287,6 +1288,10 @@ function renderHelperModes() {
     btn.classList.toggle("active", active);
     btn.setAttribute("aria-selected", active ? "true" : "false");
   }
+  if (handwritingToggle) {
+    handwritingToggle.classList.toggle("active", handwritingOpen);
+    handwritingToggle.setAttribute("aria-pressed", handwritingOpen ? "true" : "false");
+  }
 }
 
 function paintHelperItem(item) {
@@ -1940,6 +1945,17 @@ for (const btn of helperModes.querySelectorAll(".helper-mode")) {
   btn.addEventListener("click", () => setHelperMode(btn.dataset.mode));
   if (HELPER_MODES.includes(btn.dataset.mode)) wireDropZone(btn, btn.dataset.mode);
 }
+// 手書きは「調べ方」ではなく入力方法: 入力欄の左のトグルで開閉
+if (handwritingToggle) {
+  handwritingToggle.addEventListener("click", () => {
+    if (handwritingOpen) {
+      handwritingOpen = false;
+      renderHelperModes();
+    } else {
+      setHelperMode(HANDWRITING_TAB);
+    }
+  });
+}
 
 // 手書き入力: ペンのストローク → Google 手書き認識 → 候補 → 辞書で helperLookup
 // ペンを離して HANDWRITING_AUTO_RECOGNIZE_MS 後に自動認識（次の一画でリセット）
@@ -1947,8 +1963,9 @@ const handwritingCanvas = document.getElementById("handwritingCanvas");
 const handwritingCtx = handwritingCanvas.getContext("2d");
 const handwritingClearBtn = document.getElementById("handwritingClearBtn");
 const handwritingCandidates = document.getElementById("handwritingCandidates");
+const handwritingUndoBtn = document.getElementById("handwritingUndoBtn");
 const handwritingComposeBtn = document.getElementById("handwritingComposeBtn");
-const handwritingCompose = document.getElementById("handwritingCompose");
+const handwritingCompose =document.getElementById("handwritingCompose");
 const handwritingDraft = document.getElementById("handwritingDraft");
 const handwritingDraftBackBtn = document.getElementById("handwritingDraftBackBtn");
 const handwritingDraftCancelBtn = document.getElementById("handwritingDraftCancelBtn");
@@ -1956,6 +1973,8 @@ const handwritingDraftLookupBtn = document.getElementById("handwritingDraftLooku
 const HANDWRITING_HINT = "ペンで書くと候補が表示されます";
 let handwritingStrokes = []; // [[{x, y, t}, ...], ...]  x/y は CSS px
 let handwritingCurrentStroke = null;
+const HANDWRITING_UNDO_LIMIT = 5; // 取り消せるのは直近5画まで
+let handwritingUndoCache = []; // 直近の最大5ストローク（handwritingStrokes 内の同じ配列を参照）
 let handwritingDrawing = false;
 let handwritingStartTime = 0;
 let handwritingRequestId = 0;
@@ -2037,12 +2056,34 @@ function renderHandwritingCandidates(candidates) {
 
 function syncHandwritingClear() {
   handwritingClearBtn.hidden = !handwritingStrokes.length;
+  handwritingUndoBtn.disabled = !handwritingUndoCache.length;
+}
+
+// 最後の一画を取り消す（キャッシュしている直近5画まで）
+function undoHandwritingStroke() {
+  if (handwritingDrawing) return;
+  const stroke = handwritingUndoCache.pop();
+  if (!stroke) return;
+  const i = handwritingStrokes.lastIndexOf(stroke);
+  if (i >= 0) handwritingStrokes.splice(i, 1);
+  clearTimeout(handwritingAutoTimer);
+  handwritingRequestId++; // 取り消し前の認識結果を破棄
+  handwritingCandidates.classList.remove("loading");
+  redrawHandwriting();
+  syncHandwritingClear();
+  if (handwritingStrokes.length) {
+    setHandwritingStatus("認識中…");
+    handwritingAutoTimer = setTimeout(recognizeHandwriting, 300);
+  } else {
+    setHandwritingStatus("");
+  }
 }
 
 function clearHandwriting() {
   clearTimeout(handwritingAutoTimer);
   handwritingRequestId++; // 送信中の認識結果を破棄
   handwritingStrokes = [];
+  handwritingUndoCache = [];
   handwritingCurrentStroke = null;
   handwritingDrawing = false;
   redrawHandwriting();
@@ -2188,12 +2229,16 @@ function endHandwritingStroke(e) {
 handwritingCanvas.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 && e.pointerType === "mouse") return;
   e.preventDefault();
+  // 書き始めたら入力欄のフォーカスを外す（Ctrl+Z を入力欄ではなく一画の取り消しに使うため）
+  if (document.activeElement === helperInput) helperInput.blur();
   clearTimeout(handwritingAutoTimer);
   handwritingCanvas.setPointerCapture(e.pointerId);
   if (!handwritingStrokes.length) handwritingStartTime = performance.now();
   handwritingDrawing = true;
   handwritingCurrentStroke = [getHandwritingPoint(e)];
   handwritingStrokes.push(handwritingCurrentStroke);
+  handwritingUndoCache.push(handwritingCurrentStroke);
+  if (handwritingUndoCache.length > HANDWRITING_UNDO_LIMIT) handwritingUndoCache.shift();
   redrawHandwriting();
   syncHandwritingClear();
 });
@@ -2208,6 +2253,15 @@ handwritingCanvas.addEventListener("pointermove", (e) => {
 handwritingCanvas.addEventListener("pointerup", endHandwritingStroke);
 handwritingCanvas.addEventListener("pointercancel", endHandwritingStroke);
 handwritingClearBtn.addEventListener("click", clearHandwriting);
+handwritingUndoBtn.addEventListener("click", undoHandwritingStroke);
+document.addEventListener("keydown", (e) => {
+  if (!handwritingOpen || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== "z") return;
+  const el = document.activeElement;
+  if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+  if (!handwritingUndoCache.length) return;
+  e.preventDefault();
+  undoHandwritingStroke();
+});
 handwritingComposeBtn.addEventListener("click", () => setHandwritingComposing(!handwritingComposing));
 handwritingDraftBackBtn.addEventListener("click", () => {
   handwritingDraftParts.pop();
