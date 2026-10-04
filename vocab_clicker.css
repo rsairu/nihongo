@@ -6,6 +6,8 @@
   --line: #ddd6c8;
   --accent: #c45c26;
   --accent-soft: #f3e0d4;
+  --dict: #c45c26;
+  --dict-soft: #f3e0d4;
   --kanji: #3f5d6e;
   --kanji-soft: #dde6ea;
   --sentence: #6b4f7a;
@@ -14,8 +16,8 @@
   --thes-soft: #d7e8e6;
   --jiten: #8c2f39;
   --jiten-soft: #f1dfe0;
-  --handwriting: #8a5a2e;
-  --handwriting-soft: #ede1d2;
+  --handwriting: #6b7078; /* 入力方法なので調べ方タブとは別のグレー */
+  --handwriting-soft: #e6e7ea;
   --selected: #2f6f4e;
   --selected-soft: #dceee4;
   --danger: #a33;
@@ -453,8 +455,8 @@ button:disabled {
 .lookup-box[data-ui-tab="handwriting"] {
   --accent: var(--handwriting);
   --accent-soft: var(--handwriting-soft);
-  background: #f7f3ee;
-  border-color: #ddd0c0;
+  background: #f3f3f2;
+  border-color: #d2d4d8;
 }
 
 @keyframes lookup-pulse {
@@ -504,8 +506,8 @@ button:disabled {
 }
 
 .helper-mode[data-mode="dict"].active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--dict-soft);
+  border-color: var(--dict);
 }
 
 .helper-mode[data-mode="kanji"].active {
@@ -533,7 +535,7 @@ body.dragging-word .helper-mode {
 }
 
 body.dragging-word .helper-mode[data-mode="dict"] {
-  border-color: var(--accent);
+  border-color: var(--dict);
 }
 
 body.dragging-word .helper-mode[data-mode="kanji"] {
@@ -558,8 +560,8 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 }
 
 .helper-mode[data-mode="dict"].drop-target {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--dict);
+  border-color: var(--dict);
 }
 
 .helper-mode[data-mode="kanji"].drop-target {
@@ -1080,6 +1082,29 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .handwriting-candidate:focus-visible {
   background: var(--accent);
   color: #fff;
+}
+
+/* 手書き候補チップは、調べる先のタブ（data-mode）の色にする。
+   手書きパッドを開いている間 --accent は手書きの茶色に上書きされるので、チップ側で上書きし直す。 */
+.lookup-box[data-mode="dict"] .handwriting-candidate {
+  --accent: var(--dict);
+  --accent-soft: var(--dict-soft);
+}
+.lookup-box[data-mode="kanji"] .handwriting-candidate {
+  --accent: var(--kanji);
+  --accent-soft: var(--kanji-soft);
+}
+.lookup-box[data-mode="sentence"] .handwriting-candidate {
+  --accent: var(--sentence);
+  --accent-soft: var(--sentence-soft);
+}
+.lookup-box[data-mode="thes"] .handwriting-candidate {
+  --accent: var(--thes);
+  --accent-soft: var(--thes-soft);
+}
+.lookup-box[data-mode="jiten"] .handwriting-candidate {
+  --accent: var(--jiten);
+  --accent-soft: var(--jiten-soft);
 }
 
 .handwriting-status {

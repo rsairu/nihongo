@@ -1282,7 +1282,8 @@ function renderHelperModes() {
   lookupBox.dataset.mode = helperMode;
   if (handwritingOpen) lookupBox.dataset.uiTab = HANDWRITING_TAB;
   else delete lookupBox.dataset.uiTab;
-  const activeTab = handwritingOpen ? HANDWRITING_TAB : helperMode;
+  // 手書きは入力方法なので、開いている間も選択中の調べ方タブを強調したままにする
+  const activeTab = helperMode;
   for (const btn of helperModes.querySelectorAll(".helper-mode")) {
     const active = btn.dataset.mode === activeTab;
     btn.classList.toggle("active", active);
@@ -1461,13 +1462,7 @@ function setHelperMode(mode) {
     return;
   }
   if (!HELPER_MODES.includes(mode)) return;
-  if (handwritingOpen) {
-    handwritingOpen = false;
-    if (mode === helperMode) {
-      renderHelperModes();
-      return;
-    }
-  }
+  // 手書きパッドは開いたまま、調べ方だけ切り替える（候補は選択中のタブで調べる）
   if (mode === helperMode) return;
   helperMode = mode;
   renderHelperModes();
@@ -1942,7 +1937,10 @@ helperInput.addEventListener("keydown", (e) => {
 });
 
 for (const btn of helperModes.querySelectorAll(".helper-mode")) {
-  btn.addEventListener("click", () => setHelperMode(btn.dataset.mode));
+  btn.addEventListener("click", () => {
+    setHelperMode(btn.dataset.mode);
+    if (handwritingOpen) renderHandwritingDraft(); // 候補のツールチップを選択中のタブに合わせる
+  });
   if (HELPER_MODES.includes(btn.dataset.mode)) wireDropZone(btn, btn.dataset.mode);
 }
 // 手書きは「調べ方」ではなく入力方法: 入力欄の左のトグルで開閉
@@ -2091,15 +2089,13 @@ function clearHandwriting() {
   setHandwritingStatus("");
 }
 
-// 手書き結果の振り分け（クライアント側のみ・API不要）:
-// 漢字1文字だけ → 漢字辞典 (jiten) / それ以外（2文字以上、送り仮名つき、かなのみ）→ 通常の辞書 (dict)
-function handwritingLookupMode(text) {
-  const chars = Array.from(String(text).trim());
-  return chars.length === 1 && /[㐀-鿿豈-﫿]/.test(chars[0]) ? "jiten" : "dict";
+// 手書き結果は、いま選んでいる調べ方タブ（辞書・例文・漢字辞典・類義語・漢字表記）でそのまま調べる。
+function handwritingLookupMode() {
+  return helperMode;
 }
 
-function handwritingLookupLabel(text) {
-  return handwritingLookupMode(text) === "jiten" ? "漢字辞典" : "辞書";
+function handwritingLookupLabel() {
+  return HELPER_MODE_LABELS[helperMode] || "辞書";
 }
 
 function chooseHandwritingCandidate(text) {
