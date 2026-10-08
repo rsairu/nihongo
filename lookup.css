@@ -50,7 +50,7 @@ body.lookup-body {
   justify-content: center;
 }
 
-/* アイコンを上、ラベルを下。幅と高さをそろえて5つを同じ大きさに */
+/* アイコンを上、ラベルを下。幅と高さをそろえて6つを同じ大きさに */
 .lookup-page .helper-mode {
   display: flex;
   flex-direction: column;
@@ -278,6 +278,49 @@ body.lookup-body {
 
 .lookup-page .thes-empty {
   font-size: 1rem;
+}
+
+.lookup-page #helperCmp .thes-empty {
+  font-size: 1rem;
+}
+
+.lookup-page .cmp-point {
+  padding: 10px 14px;
+  font-size: 1.05rem;
+}
+
+.lookup-page .cmp-cols {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.lookup-page .cmp-card {
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+.lookup-page .cmp-word {
+  font-size: 1.2rem;
+}
+
+.lookup-page .cmp-usage,
+.lookup-page .cmp-example {
+  font-size: 0.98rem;
+}
+
+.lookup-page .cmp-swap {
+  font-size: 0.82rem;
+}
+
+.lookup-page .cmp-common .cmp-mark {
+  font-size: 0.82rem;
+}
+
+.lookup-page #helperCmpRegenBtn {
+  margin-top: 12px;
+  padding: 5px 14px;
+  font-size: 0.88rem;
 }
 
 .lookup-page #helperJitenList {

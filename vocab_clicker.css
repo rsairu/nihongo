@@ -14,6 +14,8 @@
   --sentence-soft: #ebe4ef;
   --thes: #2a6b66;
   --thes-soft: #d7e8e6;
+  --cmp: #8a6516;
+  --cmp-soft: #f1e6cc;
   --jiten: #8c2f39;
   --jiten-soft: #f1dfe0;
   --handwriting: #6b7078; /* 入力方法なので調べ方タブとは別のグレー */
@@ -445,6 +447,13 @@ button:disabled {
   border-color: #c5d8d5;
 }
 
+.lookup-box[data-mode="cmp"] {
+  --accent: var(--cmp);
+  --accent-soft: var(--cmp-soft);
+  background: #f9f6ee;
+  border-color: #ddd0ae;
+}
+
 .lookup-box[data-mode="jiten"] {
   --accent: var(--jiten);
   --accent-soft: var(--jiten-soft);
@@ -525,6 +534,11 @@ button:disabled {
   border-color: var(--thes);
 }
 
+.helper-mode[data-mode="cmp"].active {
+  background: var(--cmp-soft);
+  border-color: var(--cmp);
+}
+
 .helper-mode[data-mode="jiten"].active {
   background: var(--jiten-soft);
   border-color: var(--jiten);
@@ -548,6 +562,10 @@ body.dragging-word .helper-mode[data-mode="sentence"] {
 
 body.dragging-word .helper-mode[data-mode="thes"] {
   border-color: var(--thes);
+}
+
+body.dragging-word .helper-mode[data-mode="cmp"] {
+  border-color: var(--cmp);
 }
 
 body.dragging-word .helper-mode[data-mode="jiten"] {
@@ -577,6 +595,11 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .helper-mode[data-mode="thes"].drop-target {
   background: var(--thes);
   border-color: var(--thes);
+}
+
+.helper-mode[data-mode="cmp"].drop-target {
+  background: var(--cmp);
+  border-color: var(--cmp);
 }
 
 .helper-mode[data-mode="jiten"].drop-target {
@@ -789,6 +812,7 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .helper-tab-pip[data-mode="kanji"] { background: var(--kanji); }
 .helper-tab-pip[data-mode="sentence"] { background: var(--sentence); }
 .helper-tab-pip[data-mode="thes"] { background: var(--thes); }
+.helper-tab-pip[data-mode="cmp"] { background: var(--cmp); }
 .helper-tab-pip[data-mode="jiten"] { background: var(--jiten); }
 
 .helper-tab-mode {
@@ -833,6 +857,12 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   border: 1px solid #c3d6d3;
 }
 
+.helper-tab[data-mode="cmp"] {
+  background: #f0e7d2;
+  color: #6b4f12;
+  border: 1px solid #dccda9;
+}
+
 .helper-tab[data-mode="jiten"] {
   background: #f0e2e3;
   color: #7a3a41;
@@ -858,6 +888,10 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 
 .helper-tab[data-mode="thes"]:hover {
   border-color: var(--thes);
+}
+
+.helper-tab[data-mode="cmp"]:hover {
+  border-color: var(--cmp);
 }
 
 .helper-tab[data-mode="jiten"]:hover {
@@ -888,6 +922,11 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .helper-tab.active[data-mode="thes"] {
   background: var(--thes-soft);
   border-color: var(--thes);
+}
+
+.helper-tab.active[data-mode="cmp"] {
+  background: var(--cmp-soft);
+  border-color: var(--cmp);
 }
 
 .helper-tab.active[data-mode="jiten"] {
@@ -1101,6 +1140,11 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .lookup-box[data-mode="thes"] .handwriting-candidate {
   --accent: var(--thes);
   --accent-soft: var(--thes-soft);
+}
+
+.lookup-box[data-mode="cmp"] .handwriting-candidate {
+  --accent: var(--cmp);
+  --accent-soft: var(--cmp-soft);
 }
 .lookup-box[data-mode="jiten"] .handwriting-candidate {
   --accent: var(--jiten);
@@ -1621,4 +1665,92 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   display: flex;
   justify-content: flex-end;
   margin: 0;
+}
+
+/* 使い分け: 2〜3語の違い */
+#helperCmp .thes-empty {
+  font-size: 0.85rem;
+}
+
+.cmp-point {
+  padding: 6px 10px;
+  border-left: 3px solid var(--cmp);
+  background: var(--cmp-soft);
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.cmp-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cmp-card {
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--cmp);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.cmp-word {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 650;
+  font-size: 0.95rem;
+}
+
+.cmp-word:hover {
+  color: var(--cmp);
+  text-decoration: underline;
+}
+
+.cmp-usage {
+  margin-top: 2px;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.cmp-example {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.cmp-mark {
+  flex: none;
+  color: var(--cmp);
+  font-weight: 650;
+}
+
+.cmp-swap {
+  color: var(--muted);
+  font-size: 0.72rem;
+  padding-left: 1.2em;
+}
+
+.cmp-common {
+  margin-top: 8px;
+}
+
+.cmp-common .cmp-mark {
+  align-self: flex-start;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--cmp-soft);
+  font-size: 0.72rem;
+}
+
+#helperCmpRegenBtn {
+  margin-top: 8px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
 }

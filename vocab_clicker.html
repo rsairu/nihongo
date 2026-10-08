@@ -39,6 +39,7 @@
         <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence">例文</button>
         <button id="helperModeJiten" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten">漢字辞典</button>
         <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes">類義語</button>
+        <button id="helperModeCmp" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp">使い分け</button>
         <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji">漢字表記</button>
       </div>
       <form id="helperForm" class="lookup-row">
@@ -88,6 +89,10 @@
             <div class="thes-label">対義</div>
             <div id="helperOpposite" class="thes-list"></div>
           </div>
+        </div>
+        <div id="helperCmpBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeCmp">
+          <div id="helperCmp" aria-live="polite"></div>
+          <button id="helperCmpRegenBtn" class="minor" type="button">作り直す</button>
         </div>
         <div id="helperJitenBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeJiten">
           <div id="helperJitenList"></div>
@@ -140,7 +145,8 @@
       <span><kbd>左クリック</kbd>既知にする</span>
       <span><kbd>右クリック</kbd>例文</span>
       <span><kbd>選択</kbd>調べる</span>
-      <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語へ</span>
+      <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語・使い分けへ</span>
+      <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます</span>
       <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
       <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>
@@ -154,6 +160,7 @@
 
   <script src="config.js"></script>
   <script src="gakusei.js"></script>
+  <script src="prompts.js"></script>
   <script src="vocab_clicker.js"></script>
 </body>
 </html>

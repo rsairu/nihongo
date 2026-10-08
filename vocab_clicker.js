@@ -1,5 +1,4 @@
-const CLAUDE_MODEL = "claude-haiku-4-5";
-const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5"; // kanji usage, example sentences, kanji dictionary: heavier judgment calls
+// プロンプト本文・モデル・トークン数は prompts.js（このファイルより先に読み込む）。ここは送信・解析・表示。
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
 const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale";
 const GAKUSEI_STORAGE_KEY = "vocab-clicker-gakusei-mode";
@@ -62,15 +61,18 @@ const helperSentencePrev = document.getElementById("helperSentencePrev");
 const helperThesBlock = document.getElementById("helperThesBlock");
 const helperSimilar = document.getElementById("helperSimilar");
 const helperOpposite = document.getElementById("helperOpposite");
+const helperCmpBlock = document.getElementById("helperCmpBlock");
+const helperCmp = document.getElementById("helperCmp");
+const helperCmpRegenBtn = document.getElementById("helperCmpRegenBtn");
 const helperJitenBlock = document.getElementById("helperJitenBlock");
 const helperJitenList = document.getElementById("helperJitenList");
 const lookupBox = document.querySelector(".lookup-box");
 // lookup.html は調べるパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
 const HAS_PARSER = Boolean(inputEl && bubblesEl);
 const HELPER_HISTORY_LIMIT = 10;
-const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "jiten"];
-const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", jiten: "漢字辞典" };
-const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", jiten: "字典" };
+const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten"];
+const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典" };
+const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典" };
 // 漢字辞典: 入力の中の漢字を1字ずつ引く（1字1リクエスト、並列）。キャッシュも1字単位なので 景色 と 風景 で 景 を共有する。
 const JITEN_MAX_CHARS = 4;
 const JITEN_MAX_WORDS = 6;
@@ -101,13 +103,15 @@ let lastExcludedCount = 0;
 // 小6モード (gakusei_mode): 返ってくる説明をすべて小学6年生レベルにする。レベルごとにキャッシュを分ける。
 let gakuseiMode = false;
 function createCacheBank() {
-  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {} };
+  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {}, cmp: {} };
 }
 const cacheBanks = { standard: createCacheBank(), gakusei: createCacheBank() };
 let sentenceCache = cacheBanks.standard.sentence;
 let dictCache = cacheBanks.standard.dict;
 let kanjiCache = cacheBanks.standard.kanji;
 let thesCache = cacheBanks.standard.thes;
+/** @type {Record<string, object>} 使い分け: key は正規化した語の並び（"補償・報酬"） */
+let cmpCache = cacheBanks.standard.cmp;
 /** @type {Record<string, object>} one entry per kanji character */
 let jitenCache = cacheBanks.standard.jiten;
 /** @type {AbortController | null} */
@@ -119,10 +123,10 @@ let helperEnShown = false;
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
-/** @type {"dict" | "kanji" | "sentence" | "thes" | "jiten"} */
+/** @type {"dict" | "kanji" | "sentence" | "thes" | "cmp" | "jiten"} */
 let helperMode = "dict";
 let helperSentenceEnShown = false;
-/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, jiten: object}[]} */
+/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, cmp: object, jiten: object}[]} */
 let helperHistory = [];
 
 function extractNewVocabBlock(raw) {
@@ -355,69 +359,6 @@ function parseDictResponse(raw) {
   return { reading, ja, en };
 }
 
-function buildFreeLookupPrompt(query) {
-  return [
-    "Lookup this Japanese word or phrase.",
-    "3 lines only:",
-    "読み: <hiragana; katakana if that is normal>",
-    "JA: <one short Japanese def>",
-    "EN: <short English gloss>",
-    "",
-    "Q: " + query
-  ].join("\n");
-}
-
-function buildEnOnlyPrompt(word, reading, ja) {
-  return [
-    "Translate this Japanese word gloss into a short English definition.",
-    "Output ONLY the English gloss on one line. No quotes or labels.",
-    "",
-    "Word: " + word,
-    "Reading: " + reading,
-    "JA: " + ja
-  ].join("\n");
-}
-
-function buildKanjiPrompt(query, context) {
-  const lines = [
-    "Judge how this Japanese word is normally written in modern Japanese.",
-    "Output exactly 4 lines and nothing else:",
-    "形: <principal kanji spelling, or なし if no established kanji spelling exists>",
-    "使用: <0-4>",
-    "表記: <kana | either | kanji>",
-    "補足: <one short Japanese sentence for a learner>",
-    "",
-    "使用 scale:",
-    "0 = no established kanji spelling",
-    "1 = kanji exists but is rare or archaic; avoid writing it",
-    "2 = kanji is valid but the word is usually written in kana",
-    "3 = kana and kanji are both common",
-    "4 = normally written in kanji",
-    "",
-    "Q: " + query
-  ];
-  if (context && context.reading) lines.push("Reading: " + context.reading);
-  if (context && context.meaning) lines.push("Meaning: " + context.meaning);
-  return lines.join("\n");
-}
-
-function buildThesPrompt(query, context) {
-  const lines = [
-    "List close synonyms and antonyms for this Japanese word.",
-    "Same part of speech. Everyday learner vocabulary. Established pairs only; prefer なし over a weak match.",
-    "Output exactly 2 lines and nothing else:",
-    "類義: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
-    "対義: 単語｜よみ｜短い意味",
-    "1 to 4 synonyms. 0 to 3 antonyms. Use なし when a list is empty.",
-    "No quotes or extra commentary.",
-    "",
-    "Q: " + query
-  ];
-  if (context && context.reading) lines.push("Reading: " + context.reading);
-  if (context && context.meaning) lines.push("Meaning: " + context.meaning);
-  return lines.join("\n");
-}
-
 function isNoneList(value) {
   return /^(なし|無し|none|n\/a|-|ー|―)$/i.test(String(value || "").trim());
 }
@@ -462,7 +403,65 @@ function parseThesResponse(raw) {
 }
 
 async function fetchThesEntry(query, context, signal) {
-  return parseThesResponse(await requestClaudeText(buildThesPrompt(query, context), 280, signal));
+  return parseThesResponse(await requestPrompt("thes", buildThesPrompt(query, context), signal));
+}
+
+// 使い分け: 意味の重なる2〜3語の違い。辞書の定義は1語で完結しているので、並べたときの差（場面・硬さ・焦点・コロケーション）を出す。
+// 入力は「・」「、」「/」や空白で区切る。1語だけなら、まぎらわしい近い語をモデルに選ばせて比べる。
+const CMP_MAX_WORDS = 3;
+const CMP_LETTERS = ["A", "B", "C"];
+
+function cmpWords(query) {
+  const out = [];
+  for (const w of String(query || "").split(/[・、,，/／|｜\s]+|\s+vs\.?\s+/i)) {
+    const word = w.trim();
+    if (word && !out.includes(word)) out.push(word);
+  }
+  return out;
+}
+
+function cmpCacheKey(query) {
+  return cmpWords(query).slice(0, CMP_MAX_WORDS).join("・");
+}
+
+function parseCmpResponse(raw, inputWords) {
+  const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const fw = { "Ａ": "A", "Ｂ": "B", "Ｃ": "C" };
+  let wordsLine = "";
+  let point = "";
+  let common = "";
+  const usage = {};
+  const example = {};
+  for (const line of text.split("\n")) {
+    const m = line.match(/^\s*[-*・]?\s*\**\s*(語|要点|共通|例[A-CＡ-Ｃ]|[A-CＡ-Ｃ])\s*\**\s*[:：]\s*(.+)$/);
+    if (!m) continue;
+    const label = m[1].replace(/[Ａ-Ｃ]/g, (c) => fw[c]);
+    const value = stripWrappingQuotes(m[2]).trim();
+    if (label === "語") wordsLine = wordsLine || value;
+    else if (label === "要点") point = point || value;
+    else if (label === "共通") common = common || value;
+    else if (label.startsWith("例")) example[label.slice(1)] = example[label.slice(1)] || value;
+    else usage[label] = usage[label] || value;
+  }
+  let words = cmpWords(wordsLine).filter(looksJapanese);
+  // 指定された語は必ずその順で使う。1語のときだけモデルが選んだ語を足す
+  if (inputWords.length > 1 || !words.length) words = inputWords.slice();
+  else if (words[0] !== inputWords[0]) words = [inputWords[0], ...words.filter((w) => w !== inputWords[0])];
+  words = words.slice(0, CMP_MAX_WORDS);
+  const cards = words.map((word, i) => ({
+    word,
+    usage: usage[CMP_LETTERS[i]] || "",
+    example: example[CMP_LETTERS[i]] || ""
+  }));
+  if (!point && !cards.some((c) => c.usage)) throw new Error("empty");
+  return { point, cards, common: isNoneList(common) ? "" : common };
+}
+
+async function fetchCmpEntry(query, context, signal) {
+  const words = cmpWords(query).slice(0, CMP_MAX_WORDS);
+  if (!words.length) throw new Error("empty");
+  const raw = await requestPrompt("cmp", buildCmpPrompt(words, context), signal);
+  return parseCmpResponse(raw, words);
 }
 
 function jitenChars(query) {
@@ -472,27 +471,6 @@ function jitenChars(query) {
     if (isKanjiChar(ch) && !out.includes(ch)) out.push(ch);
   }
   return out;
-}
-
-function buildJitenPrompt(ch, query) {
-  const lines = [
-    "Kanji dictionary entry for this single kanji, as used in modern Japanese.",
-    "Output exactly 6 lines and nothing else:",
-    "字: <the kanji>",
-    "意味: <its general meaning(s) in short Japanese; separate senses with 、>",
-    "EN: <2-4 short English keywords>",
-    "音: <on'yomi in katakana, separated by 、 ; なし if none>",
-    "訓: <kun'yomi in hiragana, separated by 、 ; mark okurigana with a dot, e.g. い.きる ; なし if none>",
-    "語: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
-    "",
-    "Readings: list the standard (常用) readings first, most common first; add a rare reading only if it is well known.",
-    "語: 4 to " + JITEN_MAX_WORDS + " common words that contain this kanji, most common first, mixing on and kun readings when both are common. Each word must contain the kanji. Short meanings in Japanese.",
-    "No quotes, furigana in parentheses, or extra commentary.",
-    "",
-    "Kanji: " + ch
-  ];
-  if (query && query !== ch) lines.push("(Looked up from the word: " + query + ")");
-  return lines.join("\n");
 }
 
 function splitReadings(raw) {
@@ -542,7 +520,7 @@ async function fetchJitenEntry(query, signal) {
     shown.map(async (ch) => {
       if (jitenCache[ch]) return jitenCache[ch];
       const entry = parseJitenResponse(
-        await requestClaudeText(buildJitenPrompt(ch, query), 480, signal, 0, CLAUDE_MODEL_SONNET),
+        await requestPrompt("jiten", buildJitenPrompt(ch, query), signal),
         ch
       );
       jitenCache[ch] = entry;
@@ -590,6 +568,12 @@ function buildClaudeBody(prompt, maxTokens, temperature, model) {
   if (useProxy()) return JSON.stringify(gakuseiMode ? { ...base, gakusei_mode: true } : base);
   if (gakuseiMode && GakuseiHarness) return JSON.stringify(GakuseiHarness.applyRequest(base, true));
   return JSON.stringify(base);
+}
+
+// prompts.js の PROMPT_SETTINGS（モデル・max_tokens・temperature）で送る
+function requestPrompt(kind, prompt, signal) {
+  const cfg = PROMPT_SETTINGS[kind];
+  return requestClaudeText(prompt, cfg.maxTokens, signal, cfg.temperature, cfg.model);
 }
 
 async function requestClaudeText(prompt, maxTokens, signal, temperature, model) {
@@ -662,20 +646,20 @@ function parseKanjiResponse(raw) {
 }
 
 async function fetchDictWithPrompt(prompt, signal) {
-  const parsed = parseDictResponse(await requestClaudeText(prompt, 160, signal));
+  const parsed = parseDictResponse(await requestPrompt("dict", prompt, signal));
   if (!parsed.reading || !parsed.ja) throw new Error("empty");
   return parsed;
 }
 
 async function fetchKanjiUsage(query, context, signal) {
   return parseKanjiResponse(
-    await requestClaudeText(buildKanjiPrompt(query, context), 220, signal, 0, CLAUDE_MODEL_SONNET)
+    await requestPrompt("kanji", buildKanjiPrompt(query, context), signal)
   );
 }
 
 async function fetchEnOnly(word, reading, ja, signal) {
   const text = stripWrappingQuotes(
-    (await requestClaudeText(buildEnOnlyPrompt(word, reading, ja), 64, signal))
+    (await requestPrompt("en", buildEnOnlyPrompt(word, reading, ja), signal))
       .trim()
       .replace(/^```(?:\w+)?\n?|\n?```$/g, "")
       .trim()
@@ -827,7 +811,8 @@ function createHelperItem(query, context) {
     kanji: createModeState(),
     sentence: createModeState(),
     thes: createModeState(),
-    jiten: createModeState()
+    jiten: createModeState(),
+    cmp: createModeState()
   };
 }
 
@@ -840,6 +825,10 @@ function modeState(item, mode) {
   if (mode === "thes") {
     if (!item.thes) item.thes = createModeState();
     return item.thes;
+  }
+  if (mode === "cmp") {
+    if (!item.cmp) item.cmp = createModeState();
+    return item.cmp;
   }
   if (mode === "jiten") {
     if (!item.jiten) item.jiten = createModeState();
@@ -877,6 +866,7 @@ function cachedModeEntry(mode, query) {
     return sentences && sentences.length ? { sentences, index: sentences.length - 1 } : null;
   }
   if (mode === "thes") return thesCache[query];
+  if (mode === "cmp") return cmpCache[cmpCacheKey(query)];
   if (mode === "jiten") {
     const chars = jitenChars(query);
     if (!chars.length) return null;
@@ -891,6 +881,7 @@ function cacheModeEntry(mode, query, entry) {
   if (mode === "kanji") kanjiCache[query] = entry;
   else if (mode === "sentence") sentenceCache[query] = (entry && entry.sentences) || [];
   else if (mode === "thes") thesCache[query] = entry;
+  else if (mode === "cmp") cmpCache[cmpCacheKey(query)] = entry;
   else if (mode === "jiten") {
     for (const k of (entry && entry.kanji) || []) jitenCache[k.char] = k;
   } else dictCache[dictCacheKey(query, "")] = entry;
@@ -1122,6 +1113,74 @@ function renderThesEntry(entry) {
   renderThesList(helperOpposite, (entry && entry.opposite) || []);
 }
 
+function cmpNote(text, cls) {
+  const note = document.createElement("div");
+  note.className = cls || "thes-empty";
+  note.textContent = text;
+  return note;
+}
+
+function renderCmpPending(text) {
+  helperResult.classList.remove("error");
+  helperCmpRegenBtn.hidden = true;
+  helperCmp.replaceChildren(cmpNote(text));
+}
+
+function renderCmpError(message) {
+  helperResult.classList.add("error");
+  helperCmpRegenBtn.hidden = false;
+  helperCmp.replaceChildren(cmpNote(message));
+}
+
+function cmpExample(markText, text, cls) {
+  const ex = document.createElement("div");
+  ex.className = "cmp-example" + (cls ? " " + cls : "");
+  const mark = document.createElement("span");
+  mark.className = "cmp-mark";
+  mark.textContent = markText;
+  const sentence = document.createElement("span");
+  sentence.textContent = text;
+  ex.append(mark, sentence);
+  return ex;
+}
+
+function renderCmpEntry(entry, query) {
+  helperResult.classList.remove("error");
+  helperCmpRegenBtn.hidden = false;
+  helperCmp.replaceChildren();
+  const cards = (entry && entry.cards) || [];
+  if (cards.length < 2) {
+    helperCmp.append(cmpNote("比べる語が足りません。2〜3語を「・」や空白で区切って入力してください"));
+    return;
+  }
+  const dropped = cmpWords(query).length - CMP_MAX_WORDS;
+  if (dropped > 0) helperCmp.append(cmpNote("比べられるのは" + CMP_MAX_WORDS + "語までです（" + dropped + "語を省きました）"));
+  if (entry.point) helperCmp.append(cmpNote(entry.point, "cmp-point"));
+  const cols = document.createElement("div");
+  cols.className = "cmp-cols";
+  cols.dataset.count = String(cards.length);
+  for (const card of cards) {
+    const el = document.createElement("div");
+    el.className = "cmp-card";
+    const head = document.createElement("button");
+    head.type = "button";
+    head.className = "cmp-word";
+    head.textContent = card.word;
+    head.title = "「" + card.word + "」を辞書で調べる";
+    head.addEventListener("click", () => helperLookup(card.word, { mode: "dict" }));
+    el.append(head);
+    if (card.usage) el.append(cmpNote(card.usage, "cmp-usage"));
+    if (card.example) {
+      el.append(cmpExample("○", card.example));
+      const others = cards.filter((c) => c !== card).map((c) => "「" + c.word + "」").join("");
+      el.append(cmpNote(others + "だと不自然", "cmp-swap"));
+    }
+    cols.append(el);
+  }
+  helperCmp.append(cols);
+  if (entry.common) helperCmp.append(cmpExample("共通", entry.common, "cmp-common"));
+}
+
 function appendKunReading(container, reading) {
   const dot = reading.indexOf(".");
   if (dot < 0) {
@@ -1278,8 +1337,12 @@ function renderJitenEntry(entry) {
   }
 }
 
+const HELPER_INPUT_PLACEHOLDER = helperInput.placeholder;
+const CMP_INPUT_PLACEHOLDER = "2〜3語を「・」で区切る（例: 補償・報酬）";
+
 function renderHelperModes() {
   lookupBox.dataset.mode = helperMode;
+  helperInput.placeholder = helperMode === "cmp" ? CMP_INPUT_PLACEHOLDER : HELPER_INPUT_PLACEHOLDER;
   if (handwritingOpen) lookupBox.dataset.uiTab = HANDWRITING_TAB;
   else delete lookupBox.dataset.uiTab;
   // 手書きは入力方法なので、開いている間も選択中の調べ方タブを強調したままにする
@@ -1304,6 +1367,7 @@ function paintHelperItem(item) {
   helperKanjiBlock.classList.toggle("visible", helperMode === "kanji");
   helperSentenceBlock.classList.toggle("visible", helperMode === "sentence");
   helperThesBlock.classList.toggle("visible", helperMode === "thes");
+  helperCmpBlock.classList.toggle("visible", helperMode === "cmp");
   helperJitenBlock.classList.toggle("visible", helperMode === "jiten");
   renderHelperModes();
 
@@ -1321,6 +1385,10 @@ function paintHelperItem(item) {
     if (st.error) renderThesError(st.error);
     else if (st.entry) renderThesEntry(st.entry);
     else renderThesPending("…");
+  } else if (helperMode === "cmp") {
+    if (st.error) renderCmpError(st.error);
+    else if (st.entry) renderCmpEntry(st.entry, item.query);
+    else renderCmpPending("比べています…");
   } else if (helperMode === "jiten") {
     if (st.error) renderJitenError(st.error);
     else if (st.entry) renderJitenEntry(st.entry);
@@ -1408,6 +1476,8 @@ async function runHelperFetch(item, mode, options) {
       parsed = await fetchSentenceEntry(item.query, item.context, sentenceCache[item.query] || [], controller.signal);
     } else if (mode === "thes") {
       parsed = await fetchThesEntry(item.query, item.context, controller.signal);
+    } else if (mode === "cmp") {
+      parsed = await fetchCmpEntry(item.query, item.context, controller.signal);
     } else if (mode === "jiten") {
       parsed = await fetchJitenEntry(item.query, controller.signal);
     } else {
@@ -1421,6 +1491,7 @@ async function runHelperFetch(item, mode, options) {
       mode === "kanji" ? "漢字表記を読み込めませんでした"
       : mode === "sentence" ? "例文を読み込めませんでした"
       : mode === "thes" ? "類義語を読み込めませんでした"
+      : mode === "cmp" ? "使い分けを読み込めませんでした"
       : mode === "jiten" ? (err && err.userMessage) || "漢字辞典を読み込めませんでした"
       : "読み込めませんでした";
     if (keepSentence) {
@@ -1568,30 +1639,9 @@ function parseSentenceResponse(raw) {
   return { ja: lines[0] || text, en: "" };
 }
 
-function buildSentencePrompt(query, context, previous) {
-  const avoid = previous.length
-    ? "Do not repeat or closely paraphrase any of these previous Japanese sentences:\n" + previous.map((s) => "- " + s.ja).join("\n") + "\n"
-    : "";
-  const lines = [
-    "Write exactly one simple, natural Japanese example sentence that uses this vocabulary word.",
-    "Use a different everyday or literary situation so the learner sees varied usage.",
-    "Also give a natural English translation of that sentence.",
-    "Output exactly two lines and nothing else:",
-    "JA: <Japanese sentence>",
-    "EN: <English translation>",
-    "No quotes, no reading, no commentary.",
-    "",
-    "Word: " + query
-  ];
-  if (context && context.reading) lines.push("Reading: " + context.reading);
-  if (context && context.meaning) lines.push("Meaning: " + context.meaning);
-  if (avoid) lines.push(avoid);
-  return lines.join("\n");
-}
-
 async function fetchSentenceEntry(query, context, previous, signal) {
   const parsed = parseSentenceResponse(
-    await requestClaudeText(buildSentencePrompt(query, context, previous), 256, signal, 0.9, CLAUDE_MODEL_SONNET)
+    await requestPrompt("sentence", buildSentencePrompt(query, context, previous), signal)
   );
   parsed.ja = stripWrappingQuotes(parsed.ja);
   if (!parsed.ja) throw new Error("empty");
@@ -1918,6 +1968,11 @@ lookupBox.addEventListener("animationend", (e) => {
 helperForm.addEventListener("submit", (e) => {
   e.preventDefault();
   helperLookup();
+});
+
+helperCmpRegenBtn.addEventListener("click", () => {
+  const item = getActiveHelperItem();
+  if (item) runHelperFetch(item, "cmp", { force: true });
 });
 
 // 入力欄のクリア: × ボタン / Esc キー（表示は CSS の :placeholder-shown で制御）
@@ -2367,6 +2422,7 @@ function setGakuseiMode(enabled, save) {
   kanjiCache = bank.kanji;
   thesCache = bank.thes;
   jitenCache = bank.jiten;
+  cmpCache = bank.cmp;
   renderGakuseiBtn();
 
   if (helperEnAbort) helperEnAbort.abort();

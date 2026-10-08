@@ -12,7 +12,7 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 
 ## lookup.html is canonical
 
-The lookup panel (dictionary, 例文, 漢字辞典, 類義語, 漢字表記, 手書き, history tabs, 小6モード)
+The lookup panel (dictionary, 例文, 漢字辞典, 類義語, 使い分け, 漢字表記, 手書き, history tabs, 小6モード)
 is **defined by `lookup.html`**. The side panel in `vocab_clicker.html` is a
 **picture-in-picture version** of that page. It has the same features and the same markup structure,
 but it's smaller, and it sits next to the vocab bubbles.
@@ -28,7 +28,7 @@ but it's smaller, and it sits next to the vocab bubbles.
 
 ## Shared code: why drift breaks things
 
-Both pages load the **same** `config.js`, `gakusei.js` and `vocab_clicker.js`, and the same base `vocab_clicker.css`.
+Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js` and `vocab_clicker.js` (in that order), and the same base `vocab_clicker.css`.
 `lookup.css` is layered on top for the full-page look (rules scoped to `.lookup-page` / `.lookup-body`).
 
 - `vocab_clicker.js` looks up elements by ID at load time. If an ID exists in one page's markup but not the
@@ -47,6 +47,15 @@ Both pages load the **same** `config.js`, `gakusei.js` and `vocab_clicker.js`, a
    A quick diff of the panels:
    compare `lookup.html`'s `<main class="lookup-box lookup-page">` with `vocab_clicker.html`'s `<div class="lookup-box">`.
    Expected differences are presentational only (icons, `autofocus`, the wrapper tag and classes).
+
+## Prompts
+
+- Every prompt the lookup panel sends lives in `prompts.js`, together with `PROMPT_SETTINGS` (model, max_tokens, temperature per mode).
+  `vocab_clicker.js` sends them through `requestPrompt(kind, prompt, signal)` and parses the replies.
+- Each prompt asks for labeled lines (`読み:`, `類義:`, `例A:` …) and the matching `parse…Response` in `vocab_clicker.js` reads those labels.
+  The comment above each prompt names its parser and labels. Reword freely; change a label only together with its parser.
+- New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`, not to `vocab_clicker.js`.
+- The proxy caps max_tokens at 1024 (`api/claude.js`). 小6モード's rewrite lives in `gakusei.js`, because the proxy uses it too.
 
 ## Other
 

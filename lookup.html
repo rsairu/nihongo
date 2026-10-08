@@ -29,6 +29,7 @@
       <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence"><img class="mode-icon" src="icons_png/web/sentence.png" alt="" width="48" height="48" /><span class="mode-label">例文</span></button>
       <button id="helperModeJiten" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten"><img class="mode-icon" src="icons_png/web/jiten.png" alt="" width="48" height="48" /><span class="mode-label">漢字辞典</span></button>
       <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
+      <button id="helperModeCmp" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /><span class="mode-label">使い分け</span></button>
       <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
     </div>
     <form id="helperForm" class="lookup-row">
@@ -79,6 +80,10 @@
           <div id="helperOpposite" class="thes-list"></div>
         </div>
       </div>
+      <div id="helperCmpBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeCmp">
+        <div id="helperCmp" aria-live="polite"></div>
+        <button id="helperCmpRegenBtn" class="minor" type="button">作り直す</button>
+      </div>
       <div id="helperJitenBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeJiten">
         <div id="helperJitenList"></div>
       </div>
@@ -108,11 +113,12 @@
 
   <dialog id="about" aria-labelledby="aboutTitle">
     <h2 id="aboutTitle">使い方</h2>
-    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・漢字辞典で調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
+    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・使い分け・漢字辞典で調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
     <div class="words-help" aria-label="操作">
       <span><kbd>Enter</kbd>調べる</span>
       <span><kbd>例文の漢字</kbd>クリックで辞書へ</span>
       <span><kbd>類義語</kbd>クリックでその語を調べる</span>
+      <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>
       <span><kbd>漢字辞典</kbd>入力の漢字を1字ずつ（音読み・訓読み・意味・よく使う言葉）。言葉をクリックで辞書へ</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます</span>
       <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
@@ -127,6 +133,7 @@
 
   <script src="config.js"></script>
   <script src="gakusei.js"></script>
+  <script src="prompts.js"></script>
   <script src="vocab_clicker.js"></script>
 </body>
 </html>
