@@ -23,14 +23,23 @@ const MAX_SAVE_ROWS = 20;
 const MAX_ENTRY_BYTES = 64 * 1024;
 const MAX_PAGE = 100;
 
+// Env values pasted into Vercel sometimes carry quotes or a trailing newline.
+function envValue(name) {
+  return String(process.env[name] || "").trim().replace(/^["']|["']$/g, "").trim();
+}
+
+// Two kinds of server key:
+//   new    sb_secret_…  → apikey header only (it isn't a JWT, so it doesn't belong in Authorization)
+//   legacy eyJ… (the service_role JWT) → apikey + Authorization: Bearer
 function supabase(path, init) {
-  const base = process.env.SUPABASE_URL.replace(/\/+$/, "");
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const base = envValue("SUPABASE_URL").replace(/\/+$/, "");
+  const key = envValue("SUPABASE_SERVICE_ROLE_KEY");
+  const auth = key.startsWith("eyJ") ? { authorization: "Bearer " + key } : {};
   return fetch(base + "/rest/v1/" + path, {
     ...init,
     headers: {
       apikey: key,
-      authorization: "Bearer " + key,
+      ...auth,
       "content-type": "application/json",
       ...(init && init.headers)
     }
@@ -40,8 +49,19 @@ function supabase(path, init) {
 async function expectOk(res) {
   if (res.ok) return res;
   const text = await res.text().catch(() => "");
-  const err = new Error("supabase " + res.status + ": " + text.slice(0, 300));
+  let detail = text.slice(0, 300);
+  try {
+    const data = JSON.parse(text);
+    detail = data.message || data.msg || data.error_description || data.error || detail;
+  } catch (_) {}
+  const err = new Error("supabase " + res.status + ": " + detail);
   err.status = 502;
+  // A rejected key is a setup problem, not an outage: say so on the page (behind ACCESS_CODE, no secrets in it).
+  if (res.status === 401) {
+    err.userMessage = "Supabase がキーを拒否しました（401）。SUPABASE_SERVICE_ROLE_KEY が secret key か確認してください: " + String(detail).slice(0, 160);
+  } else if (res.status === 403) {
+    err.userMessage = "Supabase の権限が足りません（403）。db/schema.sql の GRANT を実行してください: " + String(detail).slice(0, 160);
+  }
   throw err;
 }
 
@@ -147,7 +167,7 @@ async function save(body) {
 
 module.exports = async function handler(req, res) {
   const code = process.env.ACCESS_CODE;
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY || !code) {
+  if (!envValue("SUPABASE_URL") || !envValue("SUPABASE_SERVICE_ROLE_KEY") || !code) {
     return res.status(500).json({ error: { message: "サーバー未設定 (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / ACCESS_CODE)" } });
   }
   if (req.headers["x-access-code"] !== code) {
@@ -179,6 +199,7 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     const status = err.status || 500;
     if (status >= 500) console.error(err);
-    return res.status(status).json({ error: { message: status >= 500 ? "保存先に接続できませんでした" : err.message } });
+    const message = status >= 500 ? err.userMessage || "保存先に接続できませんでした" : err.message;
+    return res.status(status).json({ error: { message } });
   }
 };

@@ -30,6 +30,11 @@ create index lookup_history_recent on lookup_history (last_looked_at desc);
 alter table lookup_entries enable row level security;
 alter table lookup_history enable row level security;
 
+-- The server key's role (service_role) needs these. Newer Supabase projects don't grant them automatically
+-- (without them every request fails with "permission denied for schema public").
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.lookup_entries, public.lookup_history to service_role;
+
 -- Records a lookup in one call: inserts the word, or bumps its count and adds the mode.
 -- p_bump = false when only switching modes on a word already open (adds the mode, no count).
 create or replace function record_lookup(
@@ -52,3 +57,4 @@ as $$
 $$;
 
 revoke execute on function record_lookup(text, text, jsonb, boolean) from public, anon, authenticated;
+grant execute on function public.record_lookup(text, text, jsonb, boolean) to service_role;
