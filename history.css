@@ -1,0 +1,191 @@
+/* history.html: 調べた語の一覧。vocab_clicker.css（色・ボタン・ヘッダー）と lookup.css（page-links）の上に重ねる */
+
+html.history-html,
+body.history-body {
+  height: auto;
+  overflow: auto;
+}
+
+body.history-body {
+  display: block;
+  min-height: 100vh;
+  padding: 24px 24px 48px;
+}
+
+.history-body .topbar {
+  max-width: 48rem;
+  margin: 0 auto 16px;
+}
+
+.history-total {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.history-page {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+.history-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.history-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-day {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 18px 0 6px;
+  padding: 6px 2px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+
+.history-day:first-child {
+  margin-top: 0;
+}
+
+.history-item + .history-item {
+  margin-top: 6px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 4px 16px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.12s, transform 0.12s;
+}
+
+.history-row:hover,
+.history-row:focus-visible {
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.history-row[data-mode="dict"] { border-left-color: var(--dict); }
+.history-row[data-mode="kanji"] { border-left-color: var(--kanji); }
+.history-row[data-mode="sentence"] { border-left-color: var(--sentence); }
+.history-row[data-mode="thes"] { border-left-color: var(--thes); }
+.history-row[data-mode="cmp"] { border-left-color: var(--cmp); }
+.history-row[data-mode="jiten"] { border-left-color: var(--jiten); }
+
+.history-word {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.history-body-text {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.history-reading {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.history-meaning {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.history-pips {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.history-count {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.history-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.history-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.history-status:empty {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  body.history-body {
+    padding: 16px 16px 40px;
+  }
+
+  .history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 10px 12px;
+  }
+
+  .history-body-text {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+
+  .history-meaning {
+    flex-basis: 100%;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .history-row { transition: none; }
+  .history-row:hover { transform: none; }
+}

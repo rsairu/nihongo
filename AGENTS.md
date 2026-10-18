@@ -9,6 +9,7 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 | `lookup.html` + `lookup.css` | **調べる — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). |
 | `vocab_clicker.html` + `vocab_clicker.css` | 語彙クリッカー — vocab parser and bubbles, with a compact copy of the lookup panel on the side. |
 | `ondoku.html` / `ondoku.js` / `ondoku.css` | 音読タイマー — separate page; doesn't share the lookup code. |
+| `history.html` + `history.js` + `history.css` | 履歴 — every word ever looked up, 50 per page. Linked from the end of the history tabs. Loads only `store.js`, not the lookup code. |
 
 ## lookup.html is canonical
 
@@ -28,7 +29,7 @@ but it's smaller, and it sits next to the vocab bubbles.
 
 ## Shared code: why drift breaks things
 
-Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js` and `vocab_clicker.js` (in that order), and the same base `vocab_clicker.css`.
+Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js` and `vocab_clicker.js` (in that order), and the same base `vocab_clicker.css`.
 `lookup.css` is layered on top for the full-page look (rules scoped to `.lookup-page` / `.lookup-body`).
 
 - `vocab_clicker.js` looks up elements by ID at load time. If an ID exists in one page's markup but not the
@@ -56,6 +57,16 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js` and `vocab_
   The comment above each prompt names its parser and labels. Reword freely; change a label only together with its parser.
 - New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`, not to `vocab_clicker.js`.
 - The proxy caps max_tokens at 1024 (`api/claude.js`). 小6モード's rewrite lives in `gakusei.js`, because the proxy uses it too.
+
+## Saved lookups (store.js / api/store.js)
+
+- Every answer and every looked-up word is saved. On load, the last 10 words come back as history tabs and their answers fill the caches, so reopening a saved word costs no API call.
+- `store.js` exposes `window.LookupStore`. Hosted, it calls `api/store.js` (Supabase, gated by the same `ACCESS_CODE`). On localhost / file:// it uses this browser's localStorage instead.
+- `vocab_clicker.js` saves from one place: `cacheModeEntry` → `persistModeEntry` (plus the 英訳 update in `ensureHelperEnglish`). A new fetch path must go through `cacheModeEntry` or it won't be saved.
+- Saved keys match the in-memory cache keys: the word, `cmpCacheKey(query)` for 使い分け, one row per character for 漢字辞典. 小6モード answers are stored with `level = 'gakusei'`.
+- `helperLookup` records the word (`record_lookup`). Re-running the word already on screen in another tab adds the mode without bumping `lookup_count`.
+- `lookup.html?q=語&mode=dict` opens a word directly (used by the history page); the query string is removed after it opens.
+- Schema: `db/schema.sql`. Server env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ACCESS_CODE`. The browser never sees the Supabase key; RLS has no policies, so only the server key can read or write.
 
 ## Other
 

@@ -70,6 +70,9 @@ const lookupBox = document.querySelector(".lookup-box");
 // lookup.html は調べるパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
 const HAS_PARSER = Boolean(inputEl && bubblesEl);
 const HELPER_HISTORY_LIMIT = 10;
+// 保存先（store.js）。履歴と答えを残して、読み込み時に直近の履歴を戻す。store.js がなければ今まで通りメモリだけ。
+const lookupStore = typeof LookupStore === "object" && LookupStore ? LookupStore : null;
+const DEEP_LINK_WAIT_MS = 5000; // ?q= で開いたとき、保存済みの答えを待つ上限
 const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten"];
 const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典" };
 const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典" };
@@ -789,6 +792,14 @@ function renderHelperTabs() {
 
     helperTabs.append(group);
   });
+  if (lookupStore) {
+    const all = document.createElement("a");
+    all.className = "helper-tab helper-tab-all";
+    all.href = "history.html";
+    all.textContent = "すべての履歴 →";
+    all.title = "これまでに調べた語をすべて見る";
+    helperTabs.append(all);
+  }
   requestAnimationFrame(() => {
     const open = helperTabs.querySelector(".helper-tab-group.expanded");
     if (open) open.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
@@ -885,6 +896,86 @@ function cacheModeEntry(mode, query, entry) {
   else if (mode === "jiten") {
     for (const k of (entry && entry.kanji) || []) jitenCache[k.char] = k;
   } else dictCache[dictCacheKey(query, "")] = entry;
+  persistModeEntry(mode, query, entry);
+}
+
+/* ---------------- 保存（store.js）: 答えと履歴を残し、読み込み時に戻す ---------------- */
+
+// 保存のキーはメモリのキャッシュと同じ: 語 / 使い分けは cmpCacheKey / 漢字辞典は1字ずつ。
+function persistModeEntry(mode, query, entry) {
+  if (!lookupStore || !entry) return;
+  const level = lookupStore.levelOf(gakuseiMode);
+  const model = PROMPT_SETTINGS[mode] ? PROMPT_SETTINGS[mode].model : null;
+  let rows;
+  if (mode === "jiten") rows = (entry.kanji || []).map((k) => ({ query: k.char, mode, level, entry: k, model }));
+  else if (mode === "sentence") rows = [{ query, mode, level, entry: entry.sentences || [], model }];
+  else if (mode === "cmp") rows = [{ query: cmpCacheKey(query), mode, level, entry, model }];
+  else rows = [{ query, mode, level, entry, model }];
+  rows = rows.filter((r) => r.query);
+  if (rows.length) lookupStore.save(rows);
+}
+
+function storeKeysFor(query) {
+  const keys = [query, cmpCacheKey(query)];
+  for (const ch of jitenChars(query).slice(0, JITEN_MAX_CHARS)) keys.push(ch);
+  return keys.filter(Boolean);
+}
+
+// 保存済みの答えを両方のレベルのキャッシュへ。メモリにもうある答え（このページで取ったもの）は上書きしない。
+function applyStoredEntries(rows) {
+  for (const row of rows) {
+    const bank = cacheBanks[row.level];
+    if (!bank || !row.entry || !HELPER_MODES.includes(row.mode)) continue;
+    if (row.mode === "dict") {
+      const key = dictCacheKey(row.query, "");
+      if (!bank.dict[key]) bank.dict[key] = row.entry;
+    } else if (row.mode === "sentence") {
+      const have = bank.sentence[row.query];
+      if (!(have && have.length) && Array.isArray(row.entry)) bank.sentence[row.query] = row.entry;
+    } else if (!bank[row.mode][row.query]) {
+      bank[row.mode][row.query] = row.entry;
+    }
+  }
+}
+
+// 直近の履歴をタブに戻す（このページで先に調べた語のうしろに並べる）。答えはキャッシュから出る。
+function restoreStoredHistory(rows) {
+  const restored = [];
+  for (const row of rows) {
+    if (!row || !row.query || findHelperItem(row.query)) continue;
+    const item = createHelperItem(row.query, row.context || null);
+    const modes = (row.modes || []).filter((m) => HELPER_MODES.includes(m));
+    item.usedModes = modes.slice();
+    item.mode = modes.length ? modes[modes.length - 1] : "dict";
+    restored.push(item);
+  }
+  if (!restored.length) return;
+  helperHistory = helperHistory.concat(restored).slice(0, HELPER_HISTORY_LIMIT);
+  renderHelperTabs();
+}
+
+async function hydrateFromStore(extraQuery) {
+  const recent = await lookupStore.history({ limit: HELPER_HISTORY_LIMIT });
+  const items = (recent && recent.items) || [];
+  const keys = new Set();
+  for (const row of items) for (const k of storeKeysFor(row.query)) keys.add(k);
+  if (extraQuery) for (const k of storeKeysFor(extraQuery)) keys.add(k);
+  applyStoredEntries(await lookupStore.entries([...keys]));
+  restoreStoredHistory(items);
+}
+
+// 履歴ページから lookup.html?q=語&mode=辞書 で開く。保存済みなら API は呼ばない。
+async function initLookupStore() {
+  const params = new URLSearchParams(location.search);
+  const deepQuery = (params.get("q") || "").trim();
+  const deepMode = params.get("mode");
+  if (deepQuery) window.history.replaceState(null, "", location.pathname + location.hash);
+
+  if (lookupStore) {
+    const hydrated = hydrateFromStore(deepQuery).catch((err) => console.warn("[store] 履歴を読み込めませんでした", err));
+    if (deepQuery) await Promise.race([hydrated, new Promise((r) => setTimeout(r, DEEP_LINK_WAIT_MS))]);
+  }
+  if (deepQuery) helperLookup(deepQuery, HELPER_MODES.includes(deepMode) ? { mode: deepMode } : {});
 }
 
 function setHelperEnVisible(shown) {
@@ -1510,11 +1601,14 @@ function helperLookup(queryOverride, options) {
   handwritingOpen = false;
 
   let item = findHelperItem(query);
+  // 表示中の語をタブだけ替えて調べ直すときは回数に数えない（モードだけ記録）
+  const bump = !(item && item.id === helperActiveId);
   if (item) {
     if (opts.context) item.context = opts.context;
   } else {
     item = createHelperItem(query, opts.context);
   }
+  if (lookupStore) lookupStore.recordLookup(query, helperMode, opts.context || null, bump);
   item.mode = helperMode;
   markModeUsed(item, helperMode);
   if (helperExpandedId && helperExpandedId !== item.id) helperExpandedId = 0;
@@ -1604,6 +1698,7 @@ async function ensureHelperEnglish() {
     if (requestId !== helperEnRequestId) return "";
     const next = { ...sourceEntry, en };
     dictCache[dictCacheKey(query, "")] = next;
+    persistModeEntry("dict", query, next);
     const target = helperHistory.find((h) => h.id === targetId);
     if (target) target.dict.entry = next;
     if (helperActiveId === targetId) {
@@ -2558,6 +2653,7 @@ window.addEventListener("storage", (e) => {
 applyFontScale(loadFontScale(), false);
 
 renderHelperModes();
+initLookupStore();
 if (HAS_PARSER) {
   selected = [];
   saveKnown();

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ja" class="history-html">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>履歴</title>
+  <link rel="stylesheet" href="vocab_clicker.css" />
+  <link rel="stylesheet" href="lookup.css" />
+  <link rel="stylesheet" href="history.css" />
+</head>
+<body class="history-body">
+  <header class="topbar">
+    <h1>履歴</h1>
+    <span id="historyTotal" class="history-total" aria-live="polite"></span>
+    <nav class="page-links">
+      <a class="page-link" href="lookup.html">← 調べる</a>
+    </nav>
+  </header>
+
+  <main class="history-page">
+    <p id="historyNote" class="history-note" hidden>このブラウザに保存された履歴です（ローカルで開いているため）。</p>
+    <ol id="historyList" class="history-list" aria-label="調べた語（新しい順）"></ol>
+    <div class="history-foot">
+      <p id="historyStatus" class="history-status" role="status"></p>
+      <button id="historyMoreBtn" class="secondary history-more" type="button" hidden>さらに50件</button>
+    </div>
+  </main>
+
+  <script src="store.js"></script>
+  <script src="history.js"></script>
+</body>
+</html>

@@ -1754,3 +1754,19 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   padding: 3px 10px;
   font-size: 0.75rem;
 }
+
+/* 履歴タブの最後: すべての履歴（history.html）へ */
+.helper-tab.helper-tab-all {
+  max-width: none;
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.helper-tab.helper-tab-all:hover,
+.helper-tab.helper-tab-all:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+}
