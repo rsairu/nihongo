@@ -321,7 +321,9 @@ function dictCacheKey(word, context) {
   return word + "\n" + context;
 }
 
-const WRAP_QUOTE_PAIRS = { '"': '"', "「": "」", "『": "』" };
+const NEW_USAGE_MARK = "〔新〕"; // 辞書プロンプトの「新しい用法」の印（prompts.js）
+
+const WRAP_QUOTE_PAIRS ={ '"': '"', "「": "」", "『": "』" };
 
 function stripWrappingQuotes(s) {
   let text = String(s || "").trim();
@@ -340,6 +342,16 @@ function parseDictResponse(raw) {
   const enMatch = text.match(/^\s*EN\s*[:：]\s*(.+)$/im);
   let reading = readingMatch ? readingMatch[1].trim() : "";
   let ja = jaMatch ? jaMatch[1].trim() : "";
+  // 「1行で」の指示を破って 〔新〕 を JA: の次の行に書いてきたときも、捨てずに JA に足す。
+  if (jaMatch) {
+    const after = text.slice(jaMatch.index + jaMatch[0].length).split("\n");
+    for (const line of after) {
+      const t = line.trim();
+      if (!t) continue;
+      if (!t.startsWith(NEW_USAGE_MARK)) break;
+      ja += t;
+    }
+  }
   let en = enMatch ? enMatch[1].trim() : "";
   if (!reading || !ja) {
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -365,11 +377,61 @@ function isNoneList(value) {
   return /^(なし|無し|none|n\/a|-|ー|―)$/i.test(String(value || "").trim());
 }
 
+// 語と語の区切りを ; でなく 、 で書いてきたときの救済（2026-10-20: 漢字辞典の 任 で
+// 「責任｜せきにん｜義務、任せる｜まかせる｜…」が1語にまとまって表示された）。
+// ｜ が4つ以上ある塊は 単語｜よみ｜意味 の組に分け直す。間の要素は「前の語の意味、次の単語」なので最後の 、 で切る。
+// 形が合わないとき（｜ の数が合わない・切れ目の 、 がない）は元の塊をそのまま返す。
+function splitRunOnEntries(part) {
+  const bits = part.split(/[｜|]/);
+  if (bits.length <= 3 || bits.length % 2 === 0) return [part];
+  const entries = [];
+  let word = bits[0];
+  for (let i = 1; i < bits.length; i += 2) {
+    const reading = bits[i];
+    let gloss = bits[i + 1];
+    let next = "";
+    if (i + 2 < bits.length) {
+      const cut = Math.max(gloss.lastIndexOf("、"), gloss.lastIndexOf("，"), gloss.lastIndexOf(","));
+      if (cut < 0) return [part];
+      next = gloss.slice(cut + 1);
+      gloss = gloss.slice(0, cut);
+    }
+    entries.push([word, reading, gloss].join("｜"));
+    word = next;
+  }
+  return entries;
+}
+
+// 保存済みの語リスト（漢字辞典の words、類義語の similar / opposite）で、意味に ｜ が残っているものを分け直す。
+// 救済を入れる前に保存された答えも、読み込み時に直る。
+function repairWordList(list) {
+  if (!Array.isArray(list) || !list.some((w) => w && /[｜|]/.test(w.gloss || ""))) return list;
+  return list.flatMap((w) =>
+    w && /[｜|]/.test(w.gloss || "") ? parseThesList([w.word, w.reading, w.gloss].join("｜")) : [w]
+  );
+}
+
+function repairStoredEntry(mode, entry) {
+  if (!entry || typeof entry !== "object") return entry;
+  if (mode === "jiten" && Array.isArray(entry.words)) {
+    const words = repairWordList(entry.words);
+    if (words !== entry.words) {
+      return { ...entry, words: words.filter((w) => w.word.includes(entry.char)).slice(0, JITEN_MAX_WORDS) };
+    }
+  }
+  if (mode === "thes") {
+    const similar = repairWordList(entry.similar);
+    const opposite = repairWordList(entry.opposite);
+    if (similar !== entry.similar || opposite !== entry.opposite) return { ...entry, similar, opposite };
+  }
+  return entry;
+}
+
 function parseThesList(raw) {
   const text = stripWrappingQuotes(raw).trim();
   if (!text || isNoneList(text)) return [];
   const items = [];
-  for (const part of text.split(/[;；]/)) {
+  for (const part of text.split(/[;；]/).flatMap(splitRunOnEntries)) {
     const bits = part.split(/[｜|]/).map((p) => stripWrappingQuotes(p)).filter(Boolean);
     if (!bits.length || isNoneList(bits[0])) continue;
     if (!looksJapanese(bits[0])) continue;
@@ -932,7 +994,7 @@ function applyStoredEntries(rows) {
       const have = bank.sentence[row.query];
       if (!(have && have.length) && Array.isArray(row.entry)) bank.sentence[row.query] = row.entry;
     } else if (!bank[row.mode][row.query]) {
-      bank[row.mode][row.query] = row.entry;
+      bank[row.mode][row.query] = repairStoredEntry(row.mode, row.entry);
     }
   }
 }
@@ -1015,6 +1077,11 @@ const SENSE_MARK_FIRST = 0x2460; // ①
 const SENSE_MARK_LAST = 0x2473;  // ⑳
 const SENSE_TRIM_RE = /^[\s、,;；/／]+|[\s、,;；/／]+$/g;
 
+// 〔新〕（新しい用法）も1行に分ける。英訳では buildEnOnlyPrompt が "(newer usage)" に置き換える。
+// 「③〔新〕…」のように番号のすぐ後ろにあるときは切らない（番号の行のまま）。
+const NEW_USAGE_SPLIT_RE = /(?<![①-⑳]\s*)(?=〔新〕|\(newer usage\))/i;
+const NEW_USAGE_START_RE = /^(?:〔新〕|\(newer usage\))/i;
+
 function splitSenses(text) {
   const s = String(text || "");
   const lines = [];
@@ -1027,7 +1094,10 @@ function splitSenses(text) {
     expected++;
   }
   lines.push(s.slice(start));
-  return lines.map((line) => line.replace(SENSE_TRIM_RE, "")).filter(Boolean);
+  return lines
+    .flatMap((line) => line.split(NEW_USAGE_SPLIT_RE))
+    .map((line) => line.replace(SENSE_TRIM_RE, ""))
+    .filter(Boolean);
 }
 
 function isSenseLine(line) {
@@ -1035,17 +1105,26 @@ function isSenseLine(line) {
   return c >= SENSE_MARK_FIRST && c <= SENSE_MARK_LAST;
 }
 
-// 辞書の JA と英訳で使う。番号が2つ以上あるときだけ行に分け、それ以外は今までどおり1行。
+function isNewUsageLine(line) {
+  return NEW_USAGE_START_RE.test(line);
+}
+
+// 辞書の JA と英訳で使う。番号が2つ以上あるか 〔新〕 があるときだけ行に分け、それ以外は今までどおり1行。
 function renderSenseLines(container, text) {
   const lines = splitSenses(text);
-  if (lines.filter(isSenseLine).length < 2) {
+  const hasNewUsage = lines.length > 1 && lines.some(isNewUsageLine);
+  if (lines.filter(isSenseLine).length < 2 && !hasNewUsage) {
     container.textContent = text || "";
     return;
   }
   container.replaceChildren(
     ...lines.map((line) => {
       const row = document.createElement("div");
-      row.className = isSenseLine(line) ? "def-sense" : "def-sense def-lead";
+      row.className = isSenseLine(line)
+        ? "def-sense"
+        : isNewUsageLine(line)
+          ? "def-sense def-new"
+          : "def-sense def-lead";
       row.textContent = line;
       return row;
     })
