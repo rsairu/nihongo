@@ -63,7 +63,6 @@ const helperSimilar = document.getElementById("helperSimilar");
 const helperOpposite = document.getElementById("helperOpposite");
 const helperCmpBlock = document.getElementById("helperCmpBlock");
 const helperCmp = document.getElementById("helperCmp");
-const helperCmpRegenBtn = document.getElementById("helperCmpRegenBtn");
 const helperJitenBlock = document.getElementById("helperJitenBlock");
 const helperJitenList = document.getElementById("helperJitenList");
 const lookupBox = document.querySelector(".lookup-box");
@@ -1010,12 +1009,55 @@ function renderDictError(message) {
   helperEnBtn.disabled = false;
 }
 
+// 定義の ①②③… を1義ずつ1行に分ける。番号より前の前置きがあれば、それも1行にする。
+// 次に来るはずの番号（①の次は②）でだけ切るので、「①から転じて」のような本文中の参照では切れない。
+const SENSE_MARK_FIRST = 0x2460; // ①
+const SENSE_MARK_LAST = 0x2473;  // ⑳
+const SENSE_TRIM_RE = /^[\s、,;；/／]+|[\s、,;；/／]+$/g;
+
+function splitSenses(text) {
+  const s = String(text || "");
+  const lines = [];
+  let expected = SENSE_MARK_FIRST;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) !== expected || expected > SENSE_MARK_LAST) continue;
+    lines.push(s.slice(start, i));
+    start = i;
+    expected++;
+  }
+  lines.push(s.slice(start));
+  return lines.map((line) => line.replace(SENSE_TRIM_RE, "")).filter(Boolean);
+}
+
+function isSenseLine(line) {
+  const c = line.charCodeAt(0);
+  return c >= SENSE_MARK_FIRST && c <= SENSE_MARK_LAST;
+}
+
+// 辞書の JA と英訳で使う。番号が2つ以上あるときだけ行に分け、それ以外は今までどおり1行。
+function renderSenseLines(container, text) {
+  const lines = splitSenses(text);
+  if (lines.filter(isSenseLine).length < 2) {
+    container.textContent = text || "";
+    return;
+  }
+  container.replaceChildren(
+    ...lines.map((line) => {
+      const row = document.createElement("div");
+      row.className = isSenseLine(line) ? "def-sense" : "def-sense def-lead";
+      row.textContent = line;
+      return row;
+    })
+  );
+}
+
 function renderDictEntry(entry, enShown) {
   helperEntry = entry;
   helperResult.classList.remove("error");
   helperKana.textContent = entry.reading || "…";
-  helperDef.textContent = entry.ja || "";
-  helperEn.textContent = entry.en || "";
+  renderSenseLines(helperDef, entry.ja);
+  renderSenseLines(helperEn, entry.en);
   helperEnBtn.classList.toggle("visible", Boolean(entry.reading && entry.ja));
   helperEnBtn.disabled = false;
   setHelperEnVisible(Boolean(enShown) && Boolean(entry.en));
@@ -1213,13 +1255,11 @@ function cmpNote(text, cls) {
 
 function renderCmpPending(text) {
   helperResult.classList.remove("error");
-  helperCmpRegenBtn.hidden = true;
   helperCmp.replaceChildren(cmpNote(text));
 }
 
 function renderCmpError(message) {
   helperResult.classList.add("error");
-  helperCmpRegenBtn.hidden = false;
   helperCmp.replaceChildren(cmpNote(message));
 }
 
@@ -1237,7 +1277,6 @@ function cmpExample(markText, text, cls) {
 
 function renderCmpEntry(entry, query) {
   helperResult.classList.remove("error");
-  helperCmpRegenBtn.hidden = false;
   helperCmp.replaceChildren();
   const cards = (entry && entry.cards) || [];
   if (cards.length < 2) {
@@ -1703,7 +1742,7 @@ async function ensureHelperEnglish() {
     if (target) target.dict.entry = next;
     if (helperActiveId === targetId) {
       helperEntry = next;
-      helperEn.textContent = en;
+      renderSenseLines(helperEn, en);
       helperEnBtn.disabled = false;
     }
     return en;
@@ -2063,11 +2102,6 @@ lookupBox.addEventListener("animationend", (e) => {
 helperForm.addEventListener("submit", (e) => {
   e.preventDefault();
   helperLookup();
-});
-
-helperCmpRegenBtn.addEventListener("click", () => {
-  const item = getActiveHelperItem();
-  if (item) runHelperFetch(item, "cmp", { force: true });
 });
 
 // 入力欄のクリア: × ボタン / Esc キー（表示は CSS の :placeholder-shown で制御）

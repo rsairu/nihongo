@@ -1194,6 +1194,19 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 
 #helperEn.visible { display: block; }
 
+/* 辞書の定義: ①②③ ごとに1行。折り返しは番号の後ろにそろえる。 */
+.def-sense {
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+
+.def-sense.def-lead {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+.def-sense + .def-sense { margin-top: 0.3em; }
+
 #helperEnBtn {
   display: none;
   margin-top: 8px;
@@ -1747,12 +1760,6 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   border-radius: 999px;
   background: var(--cmp-soft);
   font-size: 0.72rem;
-}
-
-#helperCmpRegenBtn {
-  margin-top: 8px;
-  padding: 3px 10px;
-  font-size: 0.75rem;
 }
 
 /* 履歴タブの最後: すべての履歴（history.html）へ */
