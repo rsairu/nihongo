@@ -340,6 +340,10 @@ body.lookup-body {
   font-size: 1.2rem;
 }
 
+.lookup-page .jiten-reading-row + .jiten-meaning {
+  margin-top: 10px;
+}
+
 .lookup-page .jiten-en {
   font-size: 0.92rem;
 }

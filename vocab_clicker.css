@@ -1031,6 +1031,18 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   flex: none;
 }
 
+/* 戻すアイコン：斜めに弧を描く一般的な undo 矢印 */
+#handwritingUndoBtn .undo-icon {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 #handwritingUndoBtn:disabled {
   opacity: 0.4;
   cursor: default;
@@ -1425,6 +1437,15 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .jiten-info {
   flex: 1;
   min-width: 0;
+}
+
+/* 訓・音が上、意味・EN が下（renderJitenCard の並び） */
+.jiten-info > .jiten-reading-row:first-child {
+  margin-top: 0;
+}
+
+.jiten-reading-row + .jiten-meaning {
+  margin-top: 6px;
 }
 
 .jiten-meaning {

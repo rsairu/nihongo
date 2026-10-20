@@ -78,16 +78,17 @@ function buildSentencePrompt(query, context, previous) {
 }
 
 // ── 漢字辞典 ────────────────────────────
-// 解析: parseJitenResponse / 字:, 意味:, EN:, 音:, 訓:, 語:（語は 単語｜よみ｜意味 を ; で区切る）
+// 解析: parseJitenResponse / 字:, 訓:, 音:, 意味:, EN:, 語:（語は 単語｜よみ｜意味 を ; で区切る）
+// 表示順は 訓 → 音 → 意味 → EN（renderJitenCard）。パーサーはラベルで読むので行の順番は自由。
 function buildJitenPrompt(ch, query) {
   const lines = [
     "Kanji dictionary entry for this single kanji, as used in modern Japanese.",
     "Output exactly 6 lines and nothing else:",
     "字: <the kanji>",
+    "訓: <kun'yomi in hiragana, separated by 、 ; mark okurigana with a dot, e.g. い.きる ; なし if none>",
+    "音: <on'yomi in katakana, separated by 、 ; なし if none>",
     "意味: <its general meaning(s) in short Japanese; separate senses with 、>",
     "EN: <2-4 short English keywords>",
-    "音: <on'yomi in katakana, separated by 、 ; なし if none>",
-    "訓: <kun'yomi in hiragana, separated by 、 ; mark okurigana with a dot, e.g. い.きる ; なし if none>",
     "語: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
     "",
     "Readings: list the standard (常用) readings first, most common first; add a rare reading only if it is well known.",

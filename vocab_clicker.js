@@ -1406,6 +1406,9 @@ function renderJitenCard(k) {
 
   const info = document.createElement("div");
   info.className = "jiten-info";
+  // 並び: 訓 → 音 → 意味（日本語）→ EN
+  info.append(jitenReadingRow("訓", k.kun || [], true));
+  info.append(jitenReadingRow("音", k.on || [], false));
   if (k.meaning) {
     const meaning = document.createElement("div");
     meaning.className = "jiten-meaning";
@@ -1418,8 +1421,6 @@ function renderJitenCard(k) {
     en.textContent = k.en;
     info.append(en);
   }
-  info.append(jitenReadingRow("音", k.on || [], false));
-  info.append(jitenReadingRow("訓", k.kun || [], true));
   head.append(info);
   card.append(head);
 
