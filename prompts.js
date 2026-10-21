@@ -78,22 +78,28 @@ function buildSentencePrompt(query, context, previous) {
 }
 
 // ── 漢字辞典 ────────────────────────────
-// 解析: parseJitenResponse / 字:, 訓:, 音:, 意味:, EN:, 語:（語は 単語｜よみ｜意味 を ; で区切る）
+// 解析: parseJitenResponse / 字:, 訓:, 音:, 意味:, EN:, 語:（語は1行に 単語｜よみ｜意味 を1つ。語: の行をくり返す）
+// 2026-10-20: 1行に ; 区切りで並べさせたら 、 や ｜ で区切ってくることがあったので、1語1行にした。
+// 2026-10-21: 「4〜6語」だと、語の少ない字（逞）で同じ語を意味ごとにくり返して数を埋めたので、「最大6語・同じ語は1回」にした。
 // 表示順は 訓 → 音 → 意味 → EN（renderJitenCard）。パーサーはラベルで読むので行の順番は自由。
 function buildJitenPrompt(ch, query) {
   const lines = [
     "Kanji dictionary entry for this single kanji, as used in modern Japanese.",
-    "Output exactly 6 lines and nothing else:",
+    "Output these lines and nothing else:",
     "字: <the kanji>",
     "訓: <kun'yomi in hiragana, separated by 、 (mark okurigana with a dot, e.g. い.きる), or なし if none>",
     "音: <on'yomi in katakana, separated by 、, or なし if none>",
     "意味: <its general meaning(s) in short Japanese, senses separated by 、>",
     "EN: <2-4 short English keywords>",
-    "語: 単語｜よみ｜短い意味; 単語｜よみ｜短い意味; 単語｜よみ｜短い意味",
+    "語: 単語｜よみ｜短い意味",
+    "語: 単語｜よみ｜短い意味",
+    "語: … (one 語 line per word)",
     "",
     "Readings: list the standard (常用) readings first, most common first. Add a rare reading only if it is well known.",
-    "語: 4 to " + JITEN_MAX_WORDS + " common words that contain this kanji, most common first, mixing on and kun readings when both are common. Each word must contain the kanji. Short meanings in Japanese.",
-    "In the 語 line, separate the word entries with a semicolon (;), never with 、. A 、 may appear only inside a meaning.",
+    "語: up to " + JITEN_MAX_WORDS + " common words that contain this kanji, most common first, mixing on and kun readings when both are common. Each word must contain the kanji. Short meanings in Japanese.",
+    "Each 語 line must be a different word. Never repeat a word to list its other senses; put all its senses in its one meaning, separated by 、.",
+    "If the kanji has only a few common words, list only those (even just 1). Fewer real words beat padding.",
+    "Put each word on its own 語 line: exactly one 単語｜よみ｜意味 per line, never two words on one line.",
     "No quotes, furigana in parentheses, or extra commentary.",
     "",
     "Kanji: " + ch

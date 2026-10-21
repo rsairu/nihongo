@@ -671,6 +671,20 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   border-color: var(--accent);
 }
 
+/* 調べるボタンもクリア (×) と同じくモードの色 (--accent) に */
+#helperBtn,
+#handwritingDraftLookupBtn {
+  background: var(--accent);
+  transition: background 0.2s ease, filter 0.15s ease;
+}
+
+#helperBtn:hover,
+#helperBtn:focus-visible,
+#handwritingDraftLookupBtn:hover,
+#handwritingDraftLookupBtn:focus-visible {
+  filter: brightness(0.88);
+}
+
 /* 入力欄のクリア (×) ボタン — 入力があるときだけ表示 */
 .helper-input-wrap {
   position: relative;

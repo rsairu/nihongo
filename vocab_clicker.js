@@ -377,13 +377,26 @@ function isNoneList(value) {
   return /^(なし|無し|none|n\/a|-|ー|―)$/i.test(String(value || "").trim());
 }
 
-// 語と語の区切りを ; でなく 、 で書いてきたときの救済（2026-10-20: 漢字辞典の 任 で
-// 「責任｜せきにん｜義務、任せる｜まかせる｜…」が1語にまとまって表示された）。
-// ｜ が4つ以上ある塊は 単語｜よみ｜意味 の組に分け直す。間の要素は「前の語の意味、次の単語」なので最後の 、 で切る。
-// 形が合わないとき（｜ の数が合わない・切れ目の 、 がない）は元の塊をそのまま返す。
+// 1行に何語も並べて、区切りを ; にしなかったときの救済。漢字辞典は今は1語1行で頼んでいるが、
+// 類義語と、それ以前に保存された答えはこの形のことがある。形が合わないときは元の塊をそのまま返す。
+//  ・｜ だけで続けた形（2026-10-20 荒）: 荒い｜あらい｜乱暴な、粗い｜荒れる｜あれる｜…
+//  ・、 で区切った形（2026-10-20 任）: 責任｜せきにん｜義務、任せる｜まかせる｜…
+//    間の要素は「前の語の意味、次の単語」なので最後の 、 で切る。
+function isKanaReading(s) {
+  return /^[ぁ-ゖァ-ヺー・]+$/.test(String(s || "").trim());
+}
+
 function splitRunOnEntries(part) {
   const bits = part.split(/[｜|]/);
-  if (bits.length <= 3 || bits.length % 2 === 0) return [part];
+  if (bits.length <= 3) return [part];
+  if (bits.length % 3 === 0) {
+    const entries = [];
+    for (let i = 0; i < bits.length; i += 3) entries.push(bits.slice(i, i + 3));
+    if (entries.every(([w, r]) => w.trim() && !/[、，,]/.test(w) && isKanaReading(r))) {
+      return entries.map((e) => e.join("｜"));
+    }
+  }
+  if (bits.length % 2 === 0) return [part];
   const entries = [];
   let word = bits[0];
   for (let i = 1; i < bits.length; i += 2) {
@@ -411,13 +424,36 @@ function repairWordList(list) {
   );
 }
 
+// 漢字辞典の語リストを整える: 見出し字を含む語だけ残し、同じ語（単語＋よみ）は1枚にまとめて意味を 、 でつなぐ。最大 JITEN_MAX_WORDS 語。
+// 新しい答え（parseJitenResponse）と保存済みの答え（repairStoredEntry）の両方で使う。
+// 2026-10-21 逞: モデルが 逞しい を意味ごとに4回くり返し、保存済みの答えの読み込みでは重複が消えなかった。
+function tidyJitenWords(list, ch) {
+  const out = [];
+  const byKey = new Map();
+  for (const w of list || []) {
+    if (!w || !w.word || (ch && !w.word.includes(ch))) continue;
+    const key = w.word + "｜" + (w.reading || "");
+    const have = byKey.get(key);
+    if (!have) {
+      const item = { ...w };
+      byKey.set(key, item);
+      out.push(item);
+      continue;
+    }
+    const glosses = have.gloss ? have.gloss.split("、") : [];
+    for (const g of String(w.gloss || "").split("、")) {
+      const s = g.trim();
+      if (s && !glosses.includes(s)) glosses.push(s);
+    }
+    have.gloss = glosses.join("、");
+  }
+  return out.slice(0, JITEN_MAX_WORDS);
+}
+
 function repairStoredEntry(mode, entry) {
   if (!entry || typeof entry !== "object") return entry;
   if (mode === "jiten" && Array.isArray(entry.words)) {
-    const words = repairWordList(entry.words);
-    if (words !== entry.words) {
-      return { ...entry, words: words.filter((w) => w.word.includes(entry.char)).slice(0, JITEN_MAX_WORDS) };
-    }
+    return { ...entry, words: tidyJitenWords(repairWordList(entry.words), entry.char) };
   }
   if (mode === "thes") {
     const similar = repairWordList(entry.similar);
@@ -560,9 +596,11 @@ function parseJitenResponse(raw, ch) {
   let kun = splitReadings(pick(/^\s*(?:訓読み|訓|kun(?:'?yomi)?)\s*[:：]\s*(.+)$/im)).map((r) =>
     r.replace(/[ァ-ヶ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60)).replace(/[．。·]/g, ".")
   );
-  const words = parseThesList(pick(/^\s*(?:語|熟語|words?)\s*[:：]\s*(.+)$/im))
-    .filter((w) => w.word.includes(ch))
-    .slice(0, JITEN_MAX_WORDS);
+  // 語: は1語1行でくり返す（古い形の「1行に ; 区切り」も parseThesList が読む）
+  const words = tidyJitenWords(
+    [...text.matchAll(/^\s*(?:語|熟語|words?)\s*[:：]\s*(.+)$/gim)].flatMap((m) => parseThesList(m[1])),
+    ch
+  );
   const dedupe = (list) => list.filter((r, i) => list.indexOf(r) === i);
   on = dedupe(on);
   kun = dedupe(kun);
