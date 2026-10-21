@@ -2241,6 +2241,8 @@ helperInput.addEventListener("keydown", (e) => {
 for (const btn of helperModes.querySelectorAll(".helper-mode")) {
   btn.addEventListener("click", () => {
     setHelperMode(btn.dataset.mode);
+    // 漢字辞典は手で書いて調べることが多いので、タブを押したら手書きパッドも開く
+    if (btn.dataset.mode === "jiten" && !handwritingOpen) setHelperMode(HANDWRITING_TAB);
     if (handwritingOpen) renderHandwritingDraft(); // 候補のツールチップを選択中のタブに合わせる
   });
   if (HELPER_MODES.includes(btn.dataset.mode)) wireDropZone(btn, btn.dataset.mode);
