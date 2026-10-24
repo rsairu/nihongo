@@ -2,6 +2,12 @@
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
 const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale";
 const GAKUSEI_STORAGE_KEY = "vocab-clicker-gakusei-mode";
+const READING_MODE_STORAGE_KEY = "vocab-clicker-reading-mode";
+const READING_SECONDS_STORAGE_KEY = "vocab-clicker-reading-seconds";
+const READING_UNTIL_STORAGE_KEY = "vocab-clicker-reading-until";
+const READING_SECONDS_DEFAULT = 60;
+const READING_SECONDS_MIN = 1;
+const READING_SECONDS_MAX = 3600;
 const FONT_SCALE_MIN = 0.8;
 const FONT_SCALE_MAX = 1.6;
 const FONT_SCALE_STEP = 0.1;
@@ -30,7 +36,15 @@ const removeKnownBtn = document.getElementById("removeKnownBtn");
 const fontDecBtn = document.getElementById("fontDecBtn");
 const fontIncBtn = document.getElementById("fontIncBtn");
 const fontResetBtn = document.getElementById("fontResetBtn");
-const gakuseiBtn = document.getElementById("gakuseiBtn");
+const gakuseiBtn = document.getElementById("gakuseiBtn"); // ⚙ メニューの中のスイッチ (checkbox)
+const gakuseiRow = document.getElementById("gakuseiRow");
+// ⚙ 設定メニュー（ドロップダウン）: 文字の大きさ・小6モード・読書モード。どれも localStorage に保存。
+const settingsWrap = document.getElementById("settings");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsMenu = document.getElementById("settingsMenu");
+const readingModeToggle = document.getElementById("readingModeToggle");
+const readingSecondsInput = document.getElementById("readingSecondsInput");
+const readingSecondsRow = document.getElementById("readingSecondsRow");
 const helperForm = document.getElementById("helperForm");
 const helperInput = document.getElementById("helperInput");
 const helperBtn = document.getElementById("helperBtn");
@@ -89,6 +103,13 @@ const HANDWRITING_LANGUAGE = "ja";
 const HANDWRITING_MAX_CANDIDATES = 10;
 const HANDWRITING_AUTO_RECOGNIZE_MS = 850; // ペンを離してから自動認識するまで
 let handwritingOpen = false;
+// 読書モード (⚙ メニュー): 調べたあと readingSeconds 秒は新しく調べられない（調べるボタンがグレーになる）。
+// 辞書に頼らず読み続けるため。履歴タブを開き直す・英訳・例文の作り直しは止めない。
+let readingMode = false;
+let readingSeconds = READING_SECONDS_DEFAULT;
+let readingUntil = 0; // この時刻 (ms) まで休み
+let readingSpan = 0; // 今回の休みの長さ (ms)。ボタンの残りゲージ用
+let readingTimer = 0;
 
 /** @type {{word: string, reading: string, meaning: string}[]} */
 let items = [];
@@ -1074,7 +1095,8 @@ async function initLookupStore() {
     const hydrated = hydrateFromStore(deepQuery).catch((err) => console.warn("[store] 履歴を読み込めませんでした", err));
     if (deepQuery) await Promise.race([hydrated, new Promise((r) => setTimeout(r, DEEP_LINK_WAIT_MS))]);
   }
-  if (deepQuery) helperLookup(deepQuery, HELPER_MODES.includes(deepMode) ? { mode: deepMode } : {});
+  // 履歴ページから開くのは保存済みの語を見直すだけなので、読書モードの休みには数えない
+  if (deepQuery) helperLookup(deepQuery, { ...(HELPER_MODES.includes(deepMode) ? { mode: deepMode } : {}), skipReadingCooldown: true });
 }
 
 function setHelperEnVisible(shown) {
@@ -1754,6 +1776,8 @@ function helperLookup(queryOverride, options) {
   const opts = options || {};
   const query = (queryOverride != null ? String(queryOverride) : helperInput.value).trim();
   if (!query) return;
+  // 読書モードの休み中は、どこから呼ばれても（ボタン・Enter・バブル・ドラッグ・類義語・手書き）調べない
+  if (!opts.skipReadingCooldown && readingBlocked()) return;
   if (HELPER_MODES.includes(opts.mode)) helperMode = opts.mode;
   handwritingOpen = false;
 
@@ -1774,6 +1798,7 @@ function helperLookup(queryOverride, options) {
   helperInput.value = query;
   paintHelperItem(item);
   runHelperFetch(item, helperMode);
+  if (!opts.skipReadingCooldown) startReadingCooldown();
 }
 
 function setHelperMode(mode) {
@@ -2403,6 +2428,8 @@ function handwritingLookupLabel() {
 }
 
 function chooseHandwritingCandidate(text) {
+  // 休み中は書いた字を消さずに残す（下書きへの追加はできる）
+  if (!handwritingComposing && readingBlocked()) return;
   clearHandwriting();
   if (handwritingComposing) {
     handwritingDraftParts.push(text);
@@ -2435,6 +2462,7 @@ function setHandwritingComposing(on) {
 }
 
 function lookupHandwritingDraft() {
+  if (readingBlocked()) return; // 休み中は下書きを消さない
   // 書きかけの文字がある場合は、いまの第1候補も下書きに含めてから調べる
   const pending = handwritingCandidates.querySelector(".handwriting-candidate");
   if (pending && handwritingStrokes.length) handwritingDraftParts.push(pending.textContent);
@@ -2644,11 +2672,12 @@ document.addEventListener("mouseup", () => {
 });
 
 // 小6モードの切り替え。レベルを変えたら表示中の結果を捨てて、そのレベルのキャッシュから（なければ取得し直して）出す。
+// html.gakusei-mode で ⚙ に 🎓 バッジが付く（メニューを閉じていてもオンだとわかる）
 function renderGakuseiBtn() {
-  if (!gakuseiBtn) return;
-  gakuseiBtn.setAttribute("aria-pressed", gakuseiMode ? "true" : "false");
-  gakuseiBtn.classList.toggle("gakusei-on", gakuseiMode);
   document.documentElement.classList.toggle("gakusei-mode", gakuseiMode);
+  if (gakuseiBtn) gakuseiBtn.checked = gakuseiMode;
+  if (gakuseiRow) gakuseiRow.classList.toggle("gakusei-on", gakuseiMode);
+  renderSettingsBtn();
 }
 
 function setGakuseiMode(enabled, save) {
@@ -2742,13 +2771,15 @@ function hideGakuseiToast() {
 }
 
 if (gakuseiBtn) {
-  gakuseiBtn.addEventListener("click", () => {
-    setGakuseiMode(!gakuseiMode, true);
+  gakuseiBtn.addEventListener("change", () => {
+    setGakuseiMode(gakuseiBtn.checked, true);
     if (gakuseiMode) {
       showGakuseiToast();
-      gakuseiBtn.classList.remove("gakusei-pop");
-      void gakuseiBtn.offsetWidth;
-      gakuseiBtn.classList.add("gakusei-pop");
+      if (gakuseiRow) {
+        gakuseiRow.classList.remove("gakusei-pop");
+        void gakuseiRow.offsetWidth;
+        gakuseiRow.classList.add("gakusei-pop");
+      }
     } else {
       hideGakuseiToast();
     }
@@ -2805,6 +2836,194 @@ window.addEventListener("storage", (e) => {
   if (e.key === FONT_SCALE_STORAGE_KEY) applyFontScale(e.newValue, false);
 });
 applyFontScale(loadFontScale(), false);
+
+// 読書モード。設定と休みの終わりの時刻は両ページで共有して localStorage に保存（DB には書かない）。
+function clampReadingSeconds(value) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return READING_SECONDS_DEFAULT;
+  return Math.min(READING_SECONDS_MAX, Math.max(READING_SECONDS_MIN, n));
+}
+
+function readingCooldownLeft() {
+  return readingMode ? Math.max(0, readingUntil - Date.now()) : 0;
+}
+
+function restartAnimation(el, className) {
+  if (!el) return;
+  el.classList.remove(className);
+  void el.offsetWidth;
+  el.classList.add(className);
+}
+
+// 休み中なら調べるボタンを揺らして true を返す（呼び出し側はそこで止める）
+function readingBlocked() {
+  if (readingCooldownLeft() <= 0) return false;
+  restartAnimation(helperBtn, "reading-nudge");
+  if (handwritingOpen) restartAnimation(handwritingDraftLookupBtn, "reading-nudge");
+  return true;
+}
+
+function saveReadingUntil() {
+  try {
+    if (readingUntil > Date.now()) localStorage.setItem(READING_UNTIL_STORAGE_KEY, JSON.stringify({ until: readingUntil, span: readingSpan }));
+    else localStorage.removeItem(READING_UNTIL_STORAGE_KEY);
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function loadReadingUntil(raw) {
+  readingUntil = 0;
+  readingSpan = 0;
+  try {
+    const saved = JSON.parse(raw || "null");
+    if (saved && Number(saved.until) > Date.now()) {
+      readingUntil = Number(saved.until);
+      readingSpan = Number(saved.span) || readingUntil - Date.now();
+    }
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function startReadingCooldown() {
+  if (!readingMode) return;
+  readingSpan = readingSeconds * 1000;
+  readingUntil = Date.now() + readingSpan;
+  saveReadingUntil();
+  renderReadingCooldown();
+}
+
+// 調べるボタン（入力欄の横と手書きの下書き）をグレーにして、残り秒数とゲージを出す
+function renderReadingCooldown() {
+  const left = readingCooldownLeft();
+  const waiting = left > 0;
+  const secs = Math.ceil(left / 1000);
+  const pct = waiting && readingSpan > 0 ? Math.min(100, (left / readingSpan) * 100) : 0;
+  for (const btn of [helperBtn, handwritingDraftLookupBtn]) {
+    if (!btn) continue;
+    if (!("baseTitle" in btn.dataset)) btn.dataset.baseTitle = btn.getAttribute("title") || "";
+    btn.classList.toggle("reading-wait", waiting);
+    if (waiting) {
+      btn.dataset.wait = String(secs);
+      btn.style.setProperty("--reading-left", pct.toFixed(1) + "%");
+      btn.setAttribute("aria-disabled", "true");
+      btn.title = `読書モード: あと ${secs} 秒で調べられます`;
+    } else {
+      delete btn.dataset.wait;
+      btn.style.removeProperty("--reading-left");
+      btn.removeAttribute("aria-disabled");
+      if (btn.dataset.baseTitle) btn.title = btn.dataset.baseTitle;
+      else btn.removeAttribute("title");
+    }
+  }
+  if (waiting && !readingTimer) {
+    readingTimer = setInterval(renderReadingCooldown, 200);
+  } else if (!waiting && readingTimer) {
+    clearInterval(readingTimer);
+    readingTimer = 0;
+    // 時間切れで戻ったときだけ、また調べられることを軽く知らせる（オフにしたときは出さない）
+    if (readingMode) restartAnimation(helperBtn, "reading-ready");
+  }
+}
+
+function renderReadingSettings() {
+  if (readingModeToggle) readingModeToggle.checked = readingMode;
+  if (readingSecondsInput && document.activeElement !== readingSecondsInput) readingSecondsInput.value = String(readingSeconds);
+  if (readingSecondsRow) readingSecondsRow.classList.toggle("is-off", !readingMode);
+  renderSettingsBtn();
+}
+
+// ⚙ の見た目: 読書モード中は緑、小6モード中は 🎓 バッジ（CSS）。title にオンの項目を並べる
+function renderSettingsBtn() {
+  if (!settingsBtn) return;
+  settingsBtn.classList.toggle("reading-on", readingMode);
+  const on = [];
+  if (gakuseiMode) on.push("小6モード");
+  if (readingMode) on.push(`読書モード ${readingSeconds} 秒`);
+  settingsBtn.title = on.length ? `設定（${on.join("・")}）` : "設定";
+}
+
+function setReadingMode(enabled, save) {
+  readingMode = Boolean(enabled);
+  if (!readingMode) {
+    readingUntil = 0;
+    readingSpan = 0;
+  }
+  if (save) {
+    try {
+      localStorage.setItem(READING_MODE_STORAGE_KEY, readingMode ? "1" : "0");
+    } catch (_) {
+      /* ignore */
+    }
+    if (!readingMode) saveReadingUntil();
+  }
+  renderReadingSettings();
+  renderReadingCooldown();
+}
+
+// 秒数を変えても、いまの休みはそのまま。次に調べたときから新しい秒数
+function setReadingSeconds(value, save) {
+  readingSeconds = clampReadingSeconds(value);
+  if (save) {
+    try {
+      localStorage.setItem(READING_SECONDS_STORAGE_KEY, String(readingSeconds));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  renderReadingSettings();
+}
+
+function setSettingsOpen(open) {
+  if (!settingsMenu || !settingsBtn) return;
+  settingsMenu.hidden = !open;
+  settingsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+if (settingsBtn && settingsMenu) {
+  settingsBtn.addEventListener("click", () => setSettingsOpen(settingsMenu.hidden));
+  document.addEventListener("pointerdown", (e) => {
+    if (!settingsMenu.hidden && settingsWrap && !settingsWrap.contains(e.target)) setSettingsOpen(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || settingsMenu.hidden) return;
+    setSettingsOpen(false);
+    settingsBtn.focus();
+  });
+}
+if (readingModeToggle) readingModeToggle.addEventListener("change", () => setReadingMode(readingModeToggle.checked, true));
+if (readingSecondsInput) {
+  readingSecondsInput.addEventListener("change", () => setReadingSeconds(readingSecondsInput.value, true));
+  readingSecondsInput.addEventListener("blur", renderReadingSettings);
+  readingSecondsInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setReadingSeconds(readingSecondsInput.value, true);
+      readingSecondsInput.blur();
+    }
+  });
+}
+
+// もう一方のページ（別タブ）で変えたら追従。休みも共有するので、片方で調べるともう片方も休みになる
+window.addEventListener("storage", (e) => {
+  if (e.key === READING_MODE_STORAGE_KEY) setReadingMode(e.newValue === "1", false);
+  else if (e.key === READING_SECONDS_STORAGE_KEY) setReadingSeconds(e.newValue ?? READING_SECONDS_DEFAULT, false);
+  else if (e.key === READING_UNTIL_STORAGE_KEY) {
+    loadReadingUntil(e.newValue);
+    renderReadingCooldown();
+  }
+});
+
+try {
+  readingSeconds = clampReadingSeconds(localStorage.getItem(READING_SECONDS_STORAGE_KEY) ?? READING_SECONDS_DEFAULT);
+  readingMode = localStorage.getItem(READING_MODE_STORAGE_KEY) === "1";
+  // 再読み込みしても休みは続く
+  loadReadingUntil(localStorage.getItem(READING_UNTIL_STORAGE_KEY));
+} catch (_) {
+  /* ignore */
+}
+setReadingMode(readingMode, false);
 
 renderHelperModes();
 initLookupStore();

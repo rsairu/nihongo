@@ -11,15 +11,34 @@
   <header class="topbar">
     <h1>調べる</h1>
     <a class="about-link" href="#about" id="aboutLink">about</a>
-    <button id="gakuseiBtn" class="minor gakusei-btn" type="button" aria-pressed="false" title="説明・意味・例文をすべて小学6年生が読めるやさしさにします"><span class="gakusei-cap" aria-hidden="true">🎓</span>小6モード</button>
     <nav class="page-links">
       <a class="page-link" href="vocab_clicker.html">語彙クリッカー →</a>
       <a class="page-link" href="ondoku.html">音読タイマー →</a>
     </nav>
-    <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
-      <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
-      <button id="fontResetBtn" class="font-size-btn font-size-reset" type="button" title="クリックで100%に戻す">100%</button>
-      <button id="fontIncBtn" class="font-size-btn" type="button" aria-label="文字を大きく" title="文字を大きく">A+</button>
+    <div class="settings" id="settings">
+      <button id="settingsBtn" class="settings-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="settings-badge" aria-hidden="true">🎓</span></button>
+      <div id="settingsMenu" class="settings-menu" role="group" aria-label="設定" hidden>
+        <div class="settings-row settings-row-static">
+          <span class="settings-label">文字の大きさ</span>
+          <div class="font-size-ctrl" role="group" aria-label="文字サイズ">
+            <button id="fontDecBtn" class="font-size-btn" type="button" aria-label="文字を小さく" title="文字を小さく">A−</button>
+            <button id="fontResetBtn" class="font-size-btn font-size-reset" type="button" title="クリックで100%に戻す">100%</button>
+            <button id="fontIncBtn" class="font-size-btn" type="button" aria-label="文字を大きく" title="文字を大きく">A+</button>
+          </div>
+        </div>
+        <label id="gakuseiRow" class="settings-row" for="gakuseiBtn">
+          <span class="settings-label"><span><span class="gakusei-cap" aria-hidden="true">🎓</span>小6モード</span><span class="settings-hint">説明・意味・例文をすべて小学6年生が読めるやさしさにします</span></span>
+          <input id="gakuseiBtn" class="switch" type="checkbox" role="switch" />
+        </label>
+        <label class="settings-row" for="readingModeToggle">
+          <span class="settings-label">読書モード<span class="settings-hint">調べたあと、しばらく「調べる」をお休みにして読み続けます</span></span>
+          <input id="readingModeToggle" class="switch" type="checkbox" role="switch" />
+        </label>
+        <label id="readingSecondsRow" class="settings-row" for="readingSecondsInput">
+          <span class="settings-label">お休みの時間</span>
+          <span class="settings-num"><input id="readingSecondsInput" type="number" min="1" max="3600" step="1" value="60" inputmode="numeric" />秒</span>
+        </label>
+      </div>
     </div>
   </header>
 
@@ -122,8 +141,10 @@
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます。漢字辞典タブを押すと自動で開きます</span>
       <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
       <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>
-      <span><kbd>🎓 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
+      <span><kbd>⚙ 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
       <span><kbd>履歴</kbd>調べた語と答えは保存され、次に開いたときもタブに戻ります。タブの最後の「すべての履歴」で一覧へ</span>
+      <span><kbd>⚙ 文字の大きさ</kbd>A− / A+ で文字を小さく・大きく。真ん中の % を押すと100%に戻ります</span>
+      <span><kbd>⚙ 読書モード</kbd>オンにすると、調べたあと設定した秒数（初期は60秒）だけ「調べる」がお休みになります。辞書に頼らず読み続ける練習に</span>
     </div>
     <p class="lede">単語リストの解析とバブルは「語彙クリッカー」にあります。</p>
     <form method="dialog">

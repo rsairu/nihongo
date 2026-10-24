@@ -68,6 +68,17 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
 - `lookup.html?q=語&mode=dict` opens a word directly (used by the history page); the query string is removed after it opens.
 - Schema: `db/schema.sql`. Server env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ACCESS_CODE`. The browser never sees the Supabase key; RLS has no policies, so only the server key can read or write.
 
+## Settings menu and 読書モード
+
+- The ⚙ button (`#settingsBtn`) at the right of the topbar opens a dropdown (`#settingsMenu`), not a page. It's on both pages with the same IDs.
+  It holds 文字の大きさ (`#fontDecBtn` / `#fontResetBtn` / `#fontIncBtn`), 小6モード (`#gakuseiBtn`, now a checkbox switch inside `#gakuseiRow`) and 読書モード. Put new settings here, not in the topbar.
+- All settings live in localStorage only (per browser, synced between tabs via `storage` events). They are not written to Supabase.
+- The gear shows state while closed: green while 読書モード is on, a 🎓 badge (`.settings-badge`, via `html.gakusei-mode`) while 小6モード is on.
+- 読書モード (`#readingModeToggle`, `#readingSecondsInput`, default 60 s): after a lookup, new lookups are blocked for that many seconds and the 調べる buttons (`#helperBtn`, `#handwritingDraftLookupBtn`) go gray with a countdown.
+- The gate is `readingBlocked()` at the top of `helperLookup`, so every entry point (button, Enter, bubbles, drag, 類義語/漢字辞典 clicks, handwriting) is covered. **New lookup entry points must go through `helperLookup`**. Anything that clears user input before calling it (handwriting candidates, the draft) checks `readingBlocked()` first so the input isn't lost.
+- Not blocked: reopening history tabs (`selectHelperHistory`), 英訳, 例文を作り直す, 小6モード refetches, and `?q=` deep links from the history page (`skipReadingCooldown`).
+- Settings and the cooldown end time are in localStorage and sync between tabs, so a reload doesn't reset the cooldown.
+
 ## Other
 
 - `config.js` holds local settings and keys, and it isn't deployed (see `.vercelignore`). Start from `config.example.js`.
