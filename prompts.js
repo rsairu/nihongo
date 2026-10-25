@@ -13,6 +13,7 @@ const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5";
 const PROMPT_SETTINGS = {
   dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 400,  temperature: 0 },   // 辞書（定義）
   en:       { model: CLAUDE_MODEL,        maxTokens: 200,  temperature: 0 },   // 辞書（英訳を表示）
+  gloss:    { model: CLAUDE_MODEL,        maxTokens: 60,   temperature: 0 },   // 辞書（訳語を表示）: 訳 のない保存済みの答えだけ
   sentence: { model: CLAUDE_MODEL_SONNET, maxTokens: 256,  temperature: 0.9 }, // 例文: 毎回ちがう文がほしいので高め
   jiten:    { model: CLAUDE_MODEL_SONNET, maxTokens: 480,  temperature: 0 },   // 漢字辞典（1字1リクエスト）
   thes:     { model: CLAUDE_MODEL,        maxTokens: 280,  temperature: 0 },   // 類義語
@@ -35,9 +36,11 @@ function buildSuggestionRules() {
 }
 
 // ── 辞書 ──────────────────────────────
-// 解析: parseDictResponse / 候補:, 読み:, JA:
-// 辞書: Sonnet で定義（JA）だけを作る。英訳は「英訳を表示」で fetchEnOnly（Haiku）が JA から訳す。
+// 解析: parseDictResponse / 候補:, 読み:, JA:, 訳:
+// 辞書: Sonnet で定義（JA）を作る。英訳は「英訳を表示」で fetchEnOnly（Haiku）が JA から訳す。
 // 2026-10-08: Haiku + 短い定義の指示で「口が減らない＝おしゃべり」のような字面どおりの誤訳が出たため変更。
+// 2026-10-25: 訳:（語そのものの英語の訳語。定義の訳ではない）を同じ返事に足した。出力が10〜20トークン増えるだけで、別リクエストはいらない。
+// 「訳語を表示」で読みの横に出す。訳 のない保存済みの答えだけ buildGlossPrompt（Haiku）で後から取る。
 function buildFreeLookupPrompt(query) {
   return [
     "Define this Japanese word or phrase the way a careful monolingual dictionary (大辞林・明鏡国語辞典) would.",
@@ -47,12 +50,29 @@ function buildFreeLookupPrompt(query) {
     "- If it has more than one distinct sense in common use, number them ①②③, most standard first.",
     "- Give the standard meaning first. If a newer or alternate usage is now widespread, add it after, marked 〔新〕. If dictionaries treat that usage as a mistake, say so (誤用とされる).",
     "- If you are not sure of a meaning, say so briefly instead of guessing.",
-    "Output these 3 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
+    "- 訳 is the closest English equivalent of Q itself, the way a 和英 dictionary gives it: a word or short phrase, not a definition or explanation. For an idiom, give the natural English equivalent expression, never a literal rendering. If the senses need different English words, give up to 3 separated by \"; \", in the same order as the senses.",
+    "Output these 4 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
     "候補: <most likely intended word, or なし>",
     "読み: <hiragana; katakana if that is normal>",
     "JA: <Japanese definition, all on ONE line>",
+    "訳: <closest English equivalent of Q>",
     "",
     "Q: " + query
+  ].join("\n");
+}
+
+// 訳語を表示（訳 のない保存済みの答えだけ）: 語そのものの英語の訳語。返すのは1行の英語（ラベルなし）。
+// JA は語義を選ぶためだけに渡す（定義を訳させるのではない）。
+function buildGlossPrompt(word, reading, ja) {
+  return [
+    "Give the closest English equivalent of this Japanese word or phrase itself, the way a 和英 dictionary would: a word or short phrase, not a definition or explanation.",
+    "Use the Japanese definition only to pick the right sense. If the senses need different English words, give up to 3 separated by \"; \", in the same order as the senses.",
+    "For an idiom, give the natural English equivalent expression, never a literal word-by-word rendering.",
+    "Output ONLY the English on one line. No quotes or labels.",
+    "",
+    "Word: " + word,
+    "Reading: " + reading,
+    "JA: " + ja
   ].join("\n");
 }
 

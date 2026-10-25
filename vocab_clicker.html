@@ -78,10 +78,16 @@
       <div id="helperResult">
         <div id="helperWord"></div>
         <div id="helperDictBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeDict">
-          <div id="helperKana" title="クリックでコピー"></div>
+          <div class="helper-reading-row">
+            <div id="helperKana" title="クリックでコピー"></div>
+            <div id="helperGloss" lang="en"></div>
+          </div>
           <div id="helperDef"></div>
           <div id="helperEn"></div>
-          <button id="helperEnBtn" class="secondary" type="button">英訳を表示</button>
+          <div class="helper-dict-actions">
+            <button id="helperGlossBtn" class="secondary" type="button" title="この語そのものの英語（定義の訳ではなく）">訳語を表示</button>
+            <button id="helperEnBtn" class="secondary" type="button">英訳を表示</button>
+          </div>
         </div>
         <div id="helperKanjiBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeKanji">
           <div id="helperKanjiForm"></div>
@@ -165,6 +171,7 @@
       <span><kbd>右クリック</kbd>例文</span>
       <span><kbd>選択</kbd>調べる</span>
       <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語・使い分けへ</span>
+      <span><kbd>訳語 / 英訳</kbd>辞書で、訳語は語そのものの英語（読みの下）、英訳は定義の英語（定義の下）</span>
       <span><kbd>もしかして</kbd>辞書・漢字表記で、打ちまちがいや変換ミス（賞も無い など）のときは、正しそうな語だけを出します。押すとその語を同じタブで調べる</span>
       <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます。漢字辞典タブを押すと自動で開きます</span>

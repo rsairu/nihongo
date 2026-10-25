@@ -62,6 +62,8 @@ const helperKana = document.getElementById("helperKana");
 const helperDef = document.getElementById("helperDef");
 const helperEn = document.getElementById("helperEn");
 const helperEnBtn = document.getElementById("helperEnBtn");
+const helperGloss = document.getElementById("helperGloss");
+const helperGlossBtn = document.getElementById("helperGlossBtn");
 const helperKanjiForm = document.getElementById("helperKanjiForm");
 const helperKanjiMeter = document.getElementById("helperKanjiMeter");
 const helperKanjiLabel = document.getElementById("helperKanjiLabel");
@@ -103,6 +105,8 @@ const HANDWRITING_LANGUAGE = "ja";
 const HANDWRITING_MAX_CANDIDATES = 10;
 const HANDWRITING_AUTO_RECOGNIZE_MS = 850; // ペンを離してから自動認識するまで
 let handwritingOpen = false;
+// 漢字辞典タブを押して自動で開いたとき true。ほかのタブへ移ったら自動で閉じる（手で開閉したら false）
+let handwritingAutoOpened = false;
 // 読書モード (⚙ メニュー): 調べたあと readingSeconds 秒は新しく調べられない（調べるボタンがグレーになる）。
 // 辞書に頼らず読み続けるため。履歴タブを開き直す・英訳・例文の作り直しは止めない。
 let readingMode = false;
@@ -141,9 +145,13 @@ let jitenCache = cacheBanks.standard.jiten;
 /** @type {AbortController | null} */
 let helperEnAbort = null;
 let helperEnRequestId = 0;
-/** @type {{reading: string, ja: string, en: string} | null} */
+/** @type {AbortController | null} */
+let helperGlossAbort = null;
+let helperGlossRequestId = 0;
+/** @type {{reading: string, ja: string, en: string, gloss?: string} | null} */
 let helperEntry = null;
 let helperEnShown = false;
+let helperGlossShown = false;
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
@@ -382,6 +390,7 @@ function parseDictResponse(raw, query) {
   const readingMatch = text.match(/^\s*(?:読み(?:方)?|よみ|reading)\s*[:：]\s*(.+)$/im);
   const jaMatch = text.match(/^\s*JA\s*[:：]\s*(.+)$/im);
   const enMatch = text.match(/^\s*EN\s*[:：]\s*(.+)$/im);
+  const glossMatch = text.match(GLOSS_LINE_RE);
   let reading = readingMatch ? readingMatch[1].trim() : "";
   let ja = jaMatch ? jaMatch[1].trim() : "";
   // 「1行で」の指示を破って 〔新〕 を JA: の次の行に書いてきたときも、捨てずに JA に足す。
@@ -396,8 +405,11 @@ function parseDictResponse(raw, query) {
   }
   let en = enMatch ? enMatch[1].trim() : "";
   if (!reading || !ja) {
-    // 候補: なし の行は位置で読むときに数えない（読み・JA がずれないように）
-    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l && !SUGGESTION_LINE_RE.test(l));
+    // 候補: なし と 訳: の行は位置で読むときに数えない（読み・JA がずれないように）
+    const lines = text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l && !SUGGESTION_LINE_RE.test(l) && !GLOSS_LINE_RE.test(l));
     if (!reading && lines[0]) {
       reading = lines[0]
         .replace(/^(?:読み(?:方)?|よみ|reading)\s*[:：]\s*/i, "")
@@ -413,7 +425,17 @@ function parseDictResponse(raw, query) {
   reading = stripWrappingQuotes(reading);
   ja = stripWrappingQuotes(ja);
   en = stripWrappingQuotes(en);
-  return { reading, ja, en };
+  const gloss = glossMatch ? cleanGloss(glossMatch[1]) : "";
+  return gloss ? { reading, ja, en, gloss } : { reading, ja, en };
+}
+
+// 訳語（prompts.js の 訳: 行 / buildGlossPrompt）。定義の英訳（en）とは別の、語そのものの英語。
+// 「英訳」の行にマッチしないよう、行頭の 訳 だけを読む。
+const GLOSS_LINE_RE = /^\s*(?:訳語|訳|gloss)\s*[:：]\s*(.*)$/im;
+
+function cleanGloss(raw) {
+  const s = stripWrappingQuotes(String(raw || "").split("\n")[0].trim().replace(/^(?:訳語|訳|gloss)\s*[:：]\s*/i, ""));
+  return isNoneList(s) ? "" : s;
 }
 
 function isNoneList(value) {
@@ -818,6 +840,17 @@ async function fetchEnOnly(word, reading, ja, signal) {
   return text.split("\n")[0].trim();
 }
 
+// 訳 のない保存済みの答えだけで使う（新しい辞書の答えには 訳: が入っている）。
+async function fetchGlossOnly(word, reading, ja, signal) {
+  const raw = (await requestPrompt("gloss", buildGlossPrompt(word, reading, ja), signal))
+    .trim()
+    .replace(/^```(?:\w+)?\n?|\n?```$/g, "")
+    .trim();
+  const gloss = cleanGloss(raw);
+  if (!gloss) throw new Error("empty");
+  return gloss;
+}
+
 function getActiveHelperItem() {
   return helperHistory.find((item) => item.id === helperActiveId) || null;
 }
@@ -954,7 +987,7 @@ function renderHelperTabs() {
 }
 
 function createModeState() {
-  return { entry: null, error: "", loading: false, fetchId: 0, controller: null, enShown: false };
+  return { entry: null, error: "", loading: false, fetchId: 0, controller: null, enShown: false, glossShown: false };
 }
 
 function createHelperItem(query, context) {
@@ -1134,6 +1167,24 @@ function setHelperEnVisible(shown) {
   helperEnBtn.textContent = shown ? "英訳を隠す" : "英訳を表示";
 }
 
+// 訳語（語そのものの英語）: 読みの横に、読みと同じ色で小さく出す。
+function setHelperGlossVisible(shown) {
+  helperGlossShown = shown;
+  const item = getActiveHelperItem();
+  if (item) item.dict.glossShown = shown;
+  const hasGloss = Boolean(helperEntry && helperEntry.gloss);
+  helperGloss.classList.toggle("visible", shown && hasGloss);
+  helperGlossBtn.textContent = shown ? "訳語を隠す" : "訳語を表示";
+}
+
+function clearHelperGloss() {
+  helperGloss.textContent = "";
+  helperGloss.classList.remove("visible");
+  helperGlossBtn.classList.remove("visible");
+  helperGlossBtn.disabled = false;
+  helperGlossBtn.textContent = "訳語を表示";
+}
+
 function renderDictPending(text) {
   helperEntry = null;
   helperResult.classList.remove("error");
@@ -1144,6 +1195,7 @@ function renderDictPending(text) {
   helperEnBtn.classList.remove("visible");
   helperEnBtn.disabled = false;
   helperEnBtn.textContent = "英訳を表示";
+  clearHelperGloss();
 }
 
 function renderDictError(message) {
@@ -1155,6 +1207,7 @@ function renderDictError(message) {
   helperEn.classList.remove("visible");
   helperEnBtn.classList.remove("visible");
   helperEnBtn.disabled = false;
+  clearHelperGloss();
 }
 
 // 定義の ①②③… を1義ずつ1行に分ける。番号より前の前置きがあれば、それも1行にする。
@@ -1232,15 +1285,16 @@ function renderSuggestion(container, word, mode) {
   container.replaceChildren(box);
 }
 
-function renderDictEntry(entry, enShown) {
+function renderDictEntry(entry, enShown, glossShown) {
   if (isSuggestionEntry(entry)) {
-    helperEntry = null; // 英訳の対象にしない
+    helperEntry = null; // 英訳・訳語の対象にしない
     helperResult.classList.remove("error");
     helperKana.textContent = "";
     renderSuggestion(helperDef, entry.suggestion, "dict");
     helperEn.textContent = "";
     helperEn.classList.remove("visible");
     helperEnBtn.classList.remove("visible");
+    clearHelperGloss();
     return;
   }
   helperEntry = entry;
@@ -1248,9 +1302,14 @@ function renderDictEntry(entry, enShown) {
   helperKana.textContent = entry.reading || "…";
   renderSenseLines(helperDef, entry.ja);
   renderSenseLines(helperEn, entry.en);
-  helperEnBtn.classList.toggle("visible", Boolean(entry.reading && entry.ja));
+  const answered = Boolean(entry.reading && entry.ja);
+  helperEnBtn.classList.toggle("visible", answered);
   helperEnBtn.disabled = false;
   setHelperEnVisible(Boolean(enShown) && Boolean(entry.en));
+  helperGloss.textContent = entry.gloss || "";
+  helperGlossBtn.classList.toggle("visible", answered);
+  helperGlossBtn.disabled = false;
+  setHelperGlossVisible(Boolean(glossShown) && Boolean(entry.gloss));
 }
 
 function renderKanjiMeter(usage, label) {
@@ -1703,8 +1762,9 @@ function paintHelperItem(item) {
   const st = modeState(item, helperMode);
   if (helperMode === "dict") {
     helperEnShown = st.enShown;
+    helperGlossShown = st.glossShown;
     if (st.error) renderDictError(st.error);
-    else if (st.entry) renderDictEntry(st.entry, st.enShown);
+    else if (st.entry) renderDictEntry(st.entry, st.enShown, st.glossShown);
     else renderDictPending("…");
   } else if (helperMode === "kanji") {
     if (st.error) renderKanjiError(st.error);
@@ -1841,6 +1901,7 @@ function helperLookup(queryOverride, options) {
   if (!opts.skipReadingCooldown && readingBlocked()) return;
   if (HELPER_MODES.includes(opts.mode)) helperMode = opts.mode;
   handwritingOpen = false;
+  handwritingAutoOpened = false;
 
   let item = findHelperItem(query);
   // 表示中の語をタブだけ替えて調べ直すときは回数に数えない（モードだけ記録）
@@ -1940,7 +2001,7 @@ async function ensureHelperEnglish() {
   try {
     const en = await fetchEnOnly(query, sourceEntry.reading, sourceEntry.ja, controller.signal);
     if (requestId !== helperEnRequestId) return "";
-    const next = { ...sourceEntry, en };
+    const next = { ...latestDictEntry(query, sourceEntry), en };
     dictCache[dictCacheKey(query, "")] = next;
     persistModeEntry("dict", query, next);
     const target = helperHistory.find((h) => h.id === targetId);
@@ -1961,6 +2022,63 @@ async function ensureHelperEnglish() {
     return "";
   } finally {
     if (helperEnAbort === controller) helperEnAbort = null;
+  }
+}
+
+// 英訳と訳語を同時に取りに行ったとき、あとから終わったほうが先の結果を消さないように、
+// 同じ定義のままならキャッシュの最新の答えに足す。
+function latestDictEntry(query, sourceEntry) {
+  const latest = dictCache[dictCacheKey(query, "")];
+  return latest && latest.ja === sourceEntry.ja ? latest : sourceEntry;
+}
+
+// 訳 のない保存済みの答えで「訳語を表示」を押したときだけ取る。取れたら英訳と同じく保存する。
+async function ensureHelperGloss() {
+  const item = getActiveHelperItem();
+  if (!helperEntry || helperEntry.gloss) return helperEntry && helperEntry.gloss;
+  const query = (item && item.query) || helperWord.textContent.trim();
+  if (!query) return "";
+  const sourceEntry = helperEntry;
+
+  if (!hasApiKey() && !useProxy()) {
+    helperGloss.textContent = "APIキーを設定してください";
+    helperGloss.classList.add("visible");
+    return "";
+  }
+
+  if (helperGlossAbort) helperGlossAbort.abort();
+  const controller = new AbortController();
+  helperGlossAbort = controller;
+  const requestId = ++helperGlossRequestId;
+  const targetId = item ? item.id : helperActiveId;
+  helperGlossBtn.disabled = true;
+  helperGloss.textContent = "…";
+  helperGloss.classList.add("visible");
+
+  try {
+    const gloss = await fetchGlossOnly(query, sourceEntry.reading, sourceEntry.ja, controller.signal);
+    if (requestId !== helperGlossRequestId) return "";
+    const next = { ...latestDictEntry(query, sourceEntry), gloss };
+    dictCache[dictCacheKey(query, "")] = next;
+    persistModeEntry("dict", query, next);
+    const target = helperHistory.find((h) => h.id === targetId);
+    if (target) target.dict.entry = next;
+    if (helperActiveId === targetId) {
+      helperEntry = next;
+      helperGloss.textContent = gloss;
+      helperGlossBtn.disabled = false;
+    }
+    return gloss;
+  } catch (err) {
+    if (err?.name === "AbortError") return "";
+    if (requestId !== helperGlossRequestId) return "";
+    if (helperActiveId === targetId) {
+      helperGloss.textContent = "訳語を読み込めませんでした";
+      helperGlossBtn.disabled = false;
+    }
+    return "";
+  } finally {
+    if (helperGlossAbort === controller) helperGlossAbort = null;
   }
 }
 
@@ -2328,8 +2446,20 @@ helperInput.addEventListener("keydown", (e) => {
 for (const btn of helperModes.querySelectorAll(".helper-mode")) {
   btn.addEventListener("click", () => {
     setHelperMode(btn.dataset.mode);
-    // 漢字辞典は手で書いて調べることが多いので、タブを押したら手書きパッドも開く
-    if (btn.dataset.mode === "jiten" && !handwritingOpen) setHelperMode(HANDWRITING_TAB);
+    if (btn.dataset.mode === "jiten") {
+      // 漢字辞典は手で書いて調べることが多いので、タブを押したら手書きパッドも開く
+      if (!handwritingOpen) {
+        setHelperMode(HANDWRITING_TAB);
+        handwritingAutoOpened = true;
+      }
+    } else if (handwritingAutoOpened) {
+      // 自動で開いたパッドは、ほかのタブへ移ったら閉じて元の表示に戻す
+      handwritingAutoOpened = false;
+      if (handwritingOpen) {
+        handwritingOpen = false;
+        renderHelperModes();
+      }
+    }
     if (handwritingOpen) renderHandwritingDraft(); // 候補のツールチップを選択中のタブに合わせる
   });
   if (HELPER_MODES.includes(btn.dataset.mode)) wireDropZone(btn, btn.dataset.mode);
@@ -2337,6 +2467,7 @@ for (const btn of helperModes.querySelectorAll(".helper-mode")) {
 // 手書きは「調べ方」ではなく入力方法: 入力欄の左のトグルで開閉
 if (handwritingToggle) {
   handwritingToggle.addEventListener("click", () => {
+    handwritingAutoOpened = false; // 手で開閉したら、タブ切り替えで勝手に閉じない
     if (handwritingOpen) {
       handwritingOpen = false;
       renderHelperModes();
@@ -2705,6 +2836,20 @@ helperEnBtn.addEventListener("click", async (e) => {
   setHelperEnVisible(true);
 });
 
+helperGlossBtn.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  if (!helperEntry) return;
+  if (helperGlossShown) {
+    setHelperGlossVisible(false);
+    return;
+  }
+  if (!helperEntry.gloss) {
+    const gloss = await ensureHelperGloss();
+    if (!gloss) return;
+  }
+  setHelperGlossVisible(true);
+});
+
 helperSentenceEnBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   const item = getActiveHelperItem();
@@ -2767,6 +2912,8 @@ function setGakuseiMode(enabled, save) {
 
   if (helperEnAbort) helperEnAbort.abort();
   helperEnAbort = null;
+  if (helperGlossAbort) helperGlossAbort.abort();
+  helperGlossAbort = null;
   helperEntry = null;
   for (const item of helperHistory) {
     abortHelperItem(item);
@@ -2775,6 +2922,7 @@ function setGakuseiMode(enabled, save) {
       st.entry = null;
       st.error = "";
       st.enShown = false;
+      st.glossShown = false;
       st.fetchId++;
     }
   }

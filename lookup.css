@@ -189,9 +189,17 @@ body.lookup-body {
   font-size: 0.95rem;
 }
 
-.lookup-page #helperKana {
+.lookup-page .helper-reading-row {
   margin-top: 4px;
+}
+
+.lookup-page #helperKana {
   font-size: 1.8rem;
+}
+
+.lookup-page #helperGloss {
+  margin-top: 8px;
+  font-size: 1.1rem;
 }
 
 .lookup-page #helperDef {
@@ -204,6 +212,7 @@ body.lookup-body {
   font-size: 1.02rem;
 }
 
+.lookup-page #helperGlossBtn,
 .lookup-page #helperEnBtn,
 .lookup-page #helperSentenceEnBtn,
 .lookup-page #helperSentenceRegenBtn {
