@@ -20,19 +20,35 @@ const PROMPT_SETTINGS = {
   kanji:    { model: CLAUDE_MODEL_SONNET, maxTokens: 220,  temperature: 0 }    // 漢字表記
 };
 
+// ── もしかして（辞書・漢字表記で共通）────────────
+// 解析: parseSuggestion / 候補:（なし のときは空。どのラベルより先に読む）
+// Q が実在の語・表記でない（打ちまちがい・漢字ちがい・賞も無い のような変換ミス）ときだけ 候補 を埋めさせ、
+// そのときは 候補 の行だけ返させる。アプリは「もしかして」だけを出し、推測の定義や表記はキャッシュに残らない。
+// 変換ミスは打った読みのまま（賞も無い → しょうもない。仕様もない／しようもない は読みがちがう）。
+function buildSuggestionRules() {
+  return [
+    "First decide whether Q is an established Japanese word, phrase or spelling.",
+    "If it is not (a typo, a wrong kanji, or a bad kana-kanji conversion such as 賞も無い for しょうもない), put the word the writer most likely meant, spelled the usual way, in 候補, and output ONLY the 候補 line. Do not answer for Q itself.",
+    "A bad conversion keeps the reading the writer typed, so 候補 must have the same reading as Q (賞も無い is read しょうもない, so 候補 is しょうもない, not しようもない).",
+    "Rare, literary, archaic, dialect and slang words, proper nouns, inflected forms, kana spellings of real words, and established alternate spellings (綺麗・奇麗・きれい) all count as established. For those, or whenever you are unsure, write 候補: なし and continue."
+  ];
+}
+
 // ── 辞書 ──────────────────────────────
-// 解析: parseDictResponse / 読み:, JA:
+// 解析: parseDictResponse / 候補:, 読み:, JA:
 // 辞書: Sonnet で定義（JA）だけを作る。英訳は「英訳を表示」で fetchEnOnly（Haiku）が JA から訳す。
 // 2026-10-08: Haiku + 短い定義の指示で「口が減らない＝おしゃべり」のような字面どおりの誤訳が出たため変更。
 function buildFreeLookupPrompt(query) {
   return [
     "Define this Japanese word or phrase the way a careful monolingual dictionary (大辞林・明鏡国語辞典) would.",
+    ...buildSuggestionRules(),
     "- Idiom (慣用句), proverb or set phrase: give its established idiomatic meaning. Never build the meaning from the literal parts.",
     "- Convey any connotation or register the word carries (disapproving, ironic, humble, praising, colloquial, literary, etc.).",
     "- If it has more than one distinct sense in common use, number them ①②③, most standard first.",
     "- Give the standard meaning first. If a newer or alternate usage is now widespread, add it after, marked 〔新〕. If dictionaries treat that usage as a mistake, say so (誤用とされる).",
     "- If you are not sure of a meaning, say so briefly instead of guessing.",
-    "Output exactly 2 lines and nothing else:",
+    "Output these 3 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
+    "候補: <most likely intended word, or なし>",
     "読み: <hiragana; katakana if that is normal>",
     "JA: <Japanese definition, all on ONE line>",
     "",
@@ -156,15 +172,22 @@ function buildCmpPrompt(words, context) {
 }
 
 // ── 漢字表記 ────────────────────────────
-// 解析: parseKanjiResponse / 形:, 使用:（0〜4）, 表記:, 補足:
+// 解析: parseKanjiResponse / 候補:, 形:, 補足:, 使用:（0〜4）, 表記:
+// 2026-10-25: 形 に同じ読みの別の語（類義語）が入ることと、補足 と 使用 が食いちがうことがあったので、
+// 「形 は Q と同じ語・同じ読み」「使用・表記 は 補足 と同じ判断」を足し、補足 を 使用 より先に書かせる。
+// パーサーはラベルで読むので行の順番は自由。
 function buildKanjiPrompt(query, context) {
   const lines = [
     "Judge how this Japanese word is normally written in modern Japanese.",
-    "Output exactly 4 lines and nothing else:",
+    ...buildSuggestionRules(),
+    "形 must be a spelling of the same word as Q, with the same reading. Never give a synonym or a different word with a similar meaning. If the word itself has no established kanji spelling, write なし.",
+    "補足 states your judgment. 使用 and 表記 must express that same judgment (e.g. if 補足 says the word is usually written in kana, 使用 is 2 and 表記 is kana).",
+    "Output these 5 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
+    "候補: <most likely intended word, or なし>",
     "形: <principal kanji spelling, or なし if no established kanji spelling exists>",
+    "補足: <one short Japanese sentence for a learner: how the word is usually written>",
     "使用: <0-4>",
     "表記: <kana | either | kanji>",
-    "補足: <one short Japanese sentence for a learner>",
     "",
     "使用 scale:",
     "0 = no established kanji spelling",

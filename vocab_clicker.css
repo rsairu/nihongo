@@ -1508,6 +1508,26 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   line-height: 1.45;
 }
 
+/* 辞書・漢字表記の「見つかりませんでした。もしかして：〇〇」。〇〇 を押すと同じタブで調べる。 */
+.did-you-mean {
+  color: var(--muted);
+}
+
+button.did-you-mean-btn {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.did-you-mean-btn:hover,
+button.did-you-mean-btn:focus-visible {
+  background: var(--line);
+}
+
 #helperSentence {
   margin-top: 2px;
   color: var(--ink);

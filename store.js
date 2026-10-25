@@ -17,6 +17,17 @@
     return gakusei ? "gakusei" : "standard";
   }
 
+  // 使い分けの答えの保存キー。vocab_clicker.js の cmpCacheKey と同じ（history.html は vocab_clicker.js を読まないのでここにも置く）。
+  const CMP_MAX_WORDS = 3;
+  function cmpKeyOf(query) {
+    const out = [];
+    for (const w of String(query || "").split(/[・、,，/／|｜\s]+|\s+vs\.?\s+/i)) {
+      const word = w.trim();
+      if (word && !out.includes(word)) out.push(word);
+    }
+    return out.slice(0, CMP_MAX_WORDS).join("・");
+  }
+
   /* ---------------- remote: /api/store ---------------- */
 
   function readCode() {
@@ -94,6 +105,10 @@
     save(rows) {
       saveQueue.push(...rows);
       if (!saveTimer) saveTimer = setTimeout(flushSaves, SAVE_FLUSH_MS);
+    },
+    // 履歴の1語と、その語の保存済みの答えを消す（漢字辞典の1字ごとの答えは共有なので残す）。失敗は呼び出し側へ投げる。
+    async deleteLookup(query) {
+      await call("POST", ENDPOINT, { action: "delete", query, cmpKey: cmpKeyOf(query) || null });
     }
   };
   window.addEventListener("pagehide", () => {
@@ -147,7 +162,7 @@
         for (const item of items) {
           const e =
             (map[entKey("standard", "dict", item.query)] || map[entKey("gakusei", "dict", item.query)] || {}).entry;
-          if (e) item.dict = { reading: e.reading || "", ja: e.ja || "" };
+          if (e) item.dict = { reading: e.reading || "", ja: e.ja || "", suggestion: e.suggestion || "" };
         }
       }
       return { items, total: all.length };
@@ -187,6 +202,16 @@
       const now = new Date().toISOString();
       for (const r of rows) map[entKey(r.level, r.mode, r.query)] = { entry: r.entry, updated_at: now };
       writeEntries(map);
+    },
+    async deleteLookup(query) {
+      const cmpKey = cmpKeyOf(query);
+      writeJson(HIST_KEY, readJson(HIST_KEY, []).filter((h) => h.query !== query));
+      const map = readJson(ENT_KEY, {});
+      for (const k of Object.keys(map)) {
+        const [, mode, q] = k.split("\t");
+        if ((q === query && mode !== "jiten") || (mode === "cmp" && q === cmpKey)) delete map[k];
+      }
+      writeJson(ENT_KEY, map);
     }
   };
 

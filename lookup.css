@@ -225,6 +225,10 @@ body.lookup-body {
   line-height: 1.6;
 }
 
+.lookup-page .did-you-mean-btn {
+  font-size: 1.15em;
+}
+
 .lookup-page #helperSentence {
   margin-top: 6px;
   font-size: 1.4rem;

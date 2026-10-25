@@ -3,17 +3,19 @@
 //   SUPABASE_URL               https://<project>.supabase.co
 //   SUPABASE_SERVICE_ROLE_KEY  server-only key (never sent to the browser); RLS stays closed to everyone else
 //   ACCESS_CODE                same passcode as api/claude.js
-// Tables and the record_lookup function: db/schema.sql.
+// Tables and the record_lookup / delete_lookup functions: db/schema.sql.
 //
 // GET  ?action=history&offset=0&limit=50[&summary=1]
 //        → { items: [{query, context, modes, lookup_count, first_looked_at, last_looked_at, dict?}], total }
-//        summary=1 adds dict: {reading, ja} from the saved 辞書 answer (standard level first).
+//        summary=1 adds dict: {reading, ja, suggestion} from the saved 辞書 answer (standard level first).
 // POST { action: "entries", keys: [...] }
 //        → { entries: [{query, mode, level, entry}] }   every saved answer whose cache key is in keys
 // POST { action: "lookup", query, mode, context?, bump? }
 //        → 204   inserts the word or bumps lookup_count / adds the mode (record_lookup)
 // POST { action: "save", rows: [{query, mode, level, entry, model?}] }
 //        → 204   upserts answers on (query, mode, level)
+// POST { action: "delete", query, cmpKey? }
+//        → 204   removes the word from history and its saved answers, except shared 漢字辞典 rows (delete_lookup)
 
 const MODES = new Set(["dict", "kanji", "sentence", "thes", "cmp", "jiten"]);
 const LEVELS = new Set(["standard", "gakusei"]);
@@ -109,7 +111,7 @@ async function history(params) {
     }
     for (const item of items) {
       const e = byQuery[item.query];
-      if (e) item.dict = { reading: e.reading || "", ja: e.ja || "" };
+      if (e) item.dict = { reading: e.reading || "", ja: e.ja || "", suggestion: e.suggestion || "" };
     }
   }
   return { items, total: Number.isFinite(total) ? total : items.length };
@@ -165,6 +167,17 @@ async function save(body) {
   );
 }
 
+async function deleteLookup(body) {
+  const query = cleanQuery(body.query);
+  const cmpKey = typeof body.cmpKey === "string" && body.cmpKey.trim() && body.cmpKey.length <= MAX_QUERY ? body.cmpKey.trim() : null;
+  await expectOk(
+    await supabase("rpc/delete_lookup", {
+      method: "POST",
+      body: JSON.stringify({ p_query: query, p_cmp_key: cmpKey })
+    })
+  );
+}
+
 module.exports = async function handler(req, res) {
   const code = process.env.ACCESS_CODE;
   if (!envValue("SUPABASE_URL") || !envValue("SUPABASE_SERVICE_ROLE_KEY") || !code) {
@@ -190,6 +203,10 @@ module.exports = async function handler(req, res) {
       }
       if (body.action === "save") {
         await save(body);
+        return res.status(204).end();
+      }
+      if (body.action === "delete") {
+        await deleteLookup(body);
         return res.status(204).end();
       }
       throw badRequest("unknown action");

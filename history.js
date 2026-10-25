@@ -78,8 +78,10 @@
     const body = el("span", "history-body-text");
     const reading = (item.dict && item.dict.reading) || (item.context && item.context.reading) || "";
     const meaning = (item.dict && item.dict.ja) || (item.context && item.context.meaning) || "";
+    const suggestion = (item.dict && item.dict.suggestion) || "";
     if (reading) body.append(el("span", "history-reading", reading));
     if (meaning) body.append(el("span", "history-meaning", meaning));
+    else if (suggestion) body.append(el("span", "history-meaning history-suggestion", "もしかして：" + suggestion));
 
     const meta = el("span", "history-meta");
     const pips = el("span", "history-pips");
@@ -102,8 +104,47 @@
     meta.append(time);
 
     a.append(word, body, meta);
-    li.append(a);
+
+    // × は行のリンクの外に置く（リンクの中にボタンは入れられない）
+    const del = el("button", "history-delete", "×");
+    del.type = "button";
+    del.title = "履歴から削除";
+    del.setAttribute("aria-label", "「" + item.query + "」を履歴から削除");
+    del.addEventListener("click", () => deleteRow(item.query, li, del));
+
+    li.append(a, del);
     listEl.append(li);
+  }
+
+  // 日付の見出しの下に語が残っていなければ、見出しも消す
+  function removeEmptyDay(li) {
+    const prev = li.previousElementSibling;
+    const next = li.nextElementSibling;
+    li.remove();
+    if (prev && prev.classList.contains("history-day") && (!next || next.classList.contains("history-day"))) {
+      prev.remove();
+      if (!next) lastDay = ""; // 最後の日の見出しを消したら、次のページでまた出す
+    }
+  }
+
+  async function deleteRow(query, li, btn) {
+    const ok = window.confirm(
+      "「" + query + "」を履歴から削除しますか？\n保存した答え（辞書・漢字表記・例文・類義語・使い分け）も消えます。元には戻せません。"
+    );
+    if (!ok) return;
+    btn.disabled = true;
+    try {
+      await store.deleteLookup(query);
+      removeEmptyDay(li);
+      // サーバー側で1件減ったので、続きを読む位置と総数も1つ戻す
+      offset = Math.max(0, offset - 1);
+      total = Math.max(0, total - 1);
+      renderFoot();
+    } catch (err) {
+      console.warn("[history] delete", err);
+      btn.disabled = false;
+      statusEl.textContent = "「" + query + "」を削除できませんでした（" + err.message + "）。";
+    }
   }
 
   function renderFoot() {

@@ -109,6 +109,7 @@ let readingMode = false;
 let readingSeconds = READING_SECONDS_DEFAULT;
 let readingUntil = 0; // この時刻 (ms) まで休み
 let readingSpan = 0; // 今回の休みの長さ (ms)。ボタンの残りゲージ用
+let readingCooldownOwner = null; // { itemId, mode, until }: 今の休みを始めた調べもの（startReadingCooldown）
 let readingTimer = 0;
 
 /** @type {{word: string, reading: string, meaning: string}[]} */
@@ -356,8 +357,28 @@ function stripWrappingQuotes(s) {
   return text;
 }
 
-function parseDictResponse(raw) {
+// 「もしかして」: 辞書と漢字表記の 候補: 行（prompts.js の buildSuggestionRules）。
+// 埋まっていれば、ほかの行があっても答えは { suggestion } だけにする（推測の定義・表記は出さない・残さない）。
+const SUGGESTION_LINE_RE = /^\s*(?:候補|もしかして|suggestion)\s*[:：]\s*(.*)$/im;
+
+function parseSuggestion(text, query) {
+  const m = String(text || "").match(SUGGESTION_LINE_RE);
+  if (!m) return "";
+  const bare = m[1].split(/[（(]/)[0].trim().replace(/[。．.]+$/, "");
+  const s = stripWrappingQuotes(stripWrappingQuotes(bare));
+  if (!s || isNoneList(s) || !looksJapanese(s)) return "";
+  if (query && s === String(query).trim()) return "";
+  return s;
+}
+
+function isSuggestionEntry(entry) {
+  return Boolean(entry && entry.suggestion);
+}
+
+function parseDictResponse(raw, query) {
   const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const suggestion = parseSuggestion(text, query);
+  if (suggestion) return { suggestion };
   const readingMatch = text.match(/^\s*(?:読み(?:方)?|よみ|reading)\s*[:：]\s*(.+)$/im);
   const jaMatch = text.match(/^\s*JA\s*[:：]\s*(.+)$/im);
   const enMatch = text.match(/^\s*EN\s*[:：]\s*(.+)$/im);
@@ -375,7 +396,8 @@ function parseDictResponse(raw) {
   }
   let en = enMatch ? enMatch[1].trim() : "";
   if (!reading || !ja) {
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    // 候補: なし の行は位置で読むときに数えない（読み・JA がずれないように）
+    const lines = text.split("\n").map((l) => l.trim()).filter((l) => l && !SUGGESTION_LINE_RE.test(l));
     if (!reading && lines[0]) {
       reading = lines[0]
         .replace(/^(?:読み(?:方)?|よみ|reading)\s*[:：]\s*/i, "")
@@ -734,8 +756,10 @@ async function requestClaudeText(prompt, maxTokens, signal, temperature, model) 
     .join("");
 }
 
-function parseKanjiResponse(raw) {
+function parseKanjiResponse(raw, query) {
   const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const suggestion = parseSuggestion(text, query);
+  if (suggestion) return { suggestion };
   const pick = (re) => {
     const m = text.match(re);
     return m ? m[1].trim() : "";
@@ -768,15 +792,17 @@ function parseKanjiResponse(raw) {
   return { form, usage, label: KANJI_USAGE_LABELS[usage], preferred, note };
 }
 
-async function fetchDictWithPrompt(prompt, signal) {
-  const parsed = parseDictResponse(await requestPrompt("dict", prompt, signal));
+async function fetchDictWithPrompt(prompt, signal, query) {
+  const parsed = parseDictResponse(await requestPrompt("dict", prompt, signal), query);
+  if (isSuggestionEntry(parsed)) return parsed;
   if (!parsed.reading || !parsed.ja) throw new Error("empty");
   return parsed;
 }
 
 async function fetchKanjiUsage(query, context, signal) {
   return parseKanjiResponse(
-    await requestPrompt("kanji", buildKanjiPrompt(query, context), signal)
+    await requestPrompt("kanji", buildKanjiPrompt(query, context), signal),
+    query
   );
 }
 
@@ -1191,7 +1217,32 @@ function renderSenseLines(container, text) {
   );
 }
 
+// 「見つかりませんでした。もしかして：〇〇」。〇〇 はボタンで、押すと同じタブ（mode）でその語を調べる。
+// helperLookup を通すので、読書モードの休み中は他の入口と同じく調べない。
+function renderSuggestion(container, word, mode) {
+  const box = document.createElement("div");
+  box.className = "did-you-mean";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "did-you-mean-btn";
+  btn.textContent = word;
+  btn.title = "「" + word + "」を調べる";
+  btn.addEventListener("click", () => helperLookup(word, { mode }));
+  box.append("見つかりませんでした。もしかして：", btn);
+  container.replaceChildren(box);
+}
+
 function renderDictEntry(entry, enShown) {
+  if (isSuggestionEntry(entry)) {
+    helperEntry = null; // 英訳の対象にしない
+    helperResult.classList.remove("error");
+    helperKana.textContent = "";
+    renderSuggestion(helperDef, entry.suggestion, "dict");
+    helperEn.textContent = "";
+    helperEn.classList.remove("visible");
+    helperEnBtn.classList.remove("visible");
+    return;
+  }
   helperEntry = entry;
   helperResult.classList.remove("error");
   helperKana.textContent = entry.reading || "…";
@@ -1232,6 +1283,14 @@ function renderKanjiError(message) {
 
 function renderKanjiEntry(entry) {
   helperResult.classList.remove("error");
+  if (isSuggestionEntry(entry)) {
+    helperKanjiForm.textContent = "";
+    helperKanjiMeter.replaceChildren();
+    helperKanjiMeter.removeAttribute("aria-label");
+    helperKanjiLabel.textContent = "";
+    renderSuggestion(helperKanjiNote, entry.suggestion, "kanji");
+    return;
+  }
   helperKanjiForm.textContent = entry.form || "漢字表記なし";
   renderKanjiMeter(entry.usage, entry.label);
   helperKanjiLabel.textContent = entry.label;
@@ -1713,6 +1772,7 @@ async function runHelperFetch(item, mode, options) {
     if (cached) {
       st.entry = cached;
       st.error = "";
+      if (isSuggestionEntry(cached)) releaseReadingCooldown(item.id, mode);
       repaintHelper(item, mode);
       return;
     }
@@ -1751,9 +1811,10 @@ async function runHelperFetch(item, mode, options) {
     } else if (mode === "jiten") {
       parsed = await fetchJitenEntry(item.query, controller.signal);
     } else {
-      parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal);
+      parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal, item.query);
     }
     cacheModeEntry(mode, item.query, parsed);
+    if (isSuggestionEntry(parsed)) releaseReadingCooldown(item.id, mode);
     finishHelperFetch(item, mode, fetchId, parsed, "");
   } catch (err) {
     if (err?.name === "AbortError") return;
@@ -1796,9 +1857,10 @@ function helperLookup(queryOverride, options) {
   item = rememberHelperItem(item);
   helperActiveId = item.id;
   helperInput.value = query;
+  // 休みは答えより先に始める（保存済みの もしかして はすぐ出て、そこで取り消されるので）
+  if (!opts.skipReadingCooldown) startReadingCooldown({ itemId: item.id, mode: helperMode });
   paintHelperItem(item);
   runHelperFetch(item, helperMode);
-  if (!opts.skipReadingCooldown) startReadingCooldown();
 }
 
 function setHelperMode(mode) {
@@ -2886,10 +2948,24 @@ function loadReadingUntil(raw) {
   }
 }
 
-function startReadingCooldown() {
+// owner = { itemId, mode }: この休みを始めた調べもの。もしかして で終わったら releaseReadingCooldown が取り消す。
+function startReadingCooldown(owner) {
   if (!readingMode) return;
   readingSpan = readingSeconds * 1000;
   readingUntil = Date.now() + readingSpan;
+  readingCooldownOwner = owner ? { ...owner, until: readingUntil } : null;
+  saveReadingUntil();
+  renderReadingCooldown();
+}
+
+// 打ちまちがい（答えが もしかして だけ）は読むものがないので休みに数えない。
+// 取り消すのは、その調べもので始まった休みだけ（別の語の休みや、他のタブで始まった休みはそのまま）。
+function releaseReadingCooldown(itemId, mode) {
+  const o = readingCooldownOwner;
+  if (!o || o.itemId !== itemId || o.mode !== mode || o.until !== readingUntil) return;
+  readingCooldownOwner = null;
+  readingUntil = 0;
+  readingSpan = 0;
   saveReadingUntil();
   renderReadingCooldown();
 }

@@ -58,3 +58,22 @@ $$;
 
 revoke execute on function record_lookup(text, text, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.record_lookup(text, text, jsonb, boolean) to service_role;
+
+-- 2026-10-25: 履歴ページの × で1語を消す。履歴の行と、その語の保存済みの答えを1回でまとめて消す。
+-- 漢字辞典（jiten）の答えは1字ずつで、ほかの語と共有しているので残す。
+-- 使い分けの答えは cmpCacheKey（「補償 報酬」→「補償・報酬」）で保存されているので p_cmp_key も消す。
+create or replace function delete_lookup(
+  p_query   text,
+  p_cmp_key text default null
+) returns void
+language sql
+set search_path = public
+as $$
+  delete from lookup_entries
+   where (query = p_query and mode <> 'jiten')
+      or (mode = 'cmp' and query = p_cmp_key);
+  delete from lookup_history where query = p_query;
+$$;
+
+revoke execute on function delete_lookup(text, text) from public, anon, authenticated;
+grant execute on function public.delete_lookup(text, text) to service_role;

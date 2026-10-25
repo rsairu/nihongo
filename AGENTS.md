@@ -55,6 +55,7 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
   `vocab_clicker.js` sends them through `requestPrompt(kind, prompt, signal)` and parses the replies.
 - Each prompt asks for labeled lines (`読み:`, `類義:`, `例A:` …) and the matching `parse…Response` in `vocab_clicker.js` reads those labels.
   The comment above each prompt names its parser and labels. Reword freely; change a label only together with its parser.
+- もしかして: 辞書 and 漢字表記 both start with `候補:` (`buildSuggestionRules`, read by `parseSuggestion`). It's filled only when Q isn't an established word or spelling (typo, wrong kanji, bad conversion like 賞も無い). Then the answer is just `{ suggestion }`: the parsers drop any other lines, and `renderDictEntry` / `renderKanjiEntry` show 「見つかりませんでした。もしかして：〇〇」, where 〇〇 is a button that calls `helperLookup` in the same mode. That `{ suggestion }` is what gets cached and saved for the bad query, never a guessed definition or spelling. A lookup that ends in a suggestion cancels the 読書モード cooldown it started (`releaseReadingCooldown`), so tapping the suggestion isn't blocked.
 - New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`, not to `vocab_clicker.js`.
 - The proxy caps max_tokens at 1024 (`api/claude.js`). 小6モード's rewrite lives in `gakusei.js`, because the proxy uses it too.
 
@@ -65,6 +66,7 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
 - `vocab_clicker.js` saves from one place: `cacheModeEntry` → `persistModeEntry` (plus the 英訳 update in `ensureHelperEnglish`). A new fetch path must go through `cacheModeEntry` or it won't be saved.
 - Saved keys match the in-memory cache keys: the word, `cmpCacheKey(query)` for 使い分け, one row per character for 漢字辞典. 小6モード answers are stored with `level = 'gakusei'`.
 - `helperLookup` records the word (`record_lookup`). Re-running the word already on screen in another tab adds the mode without bumping `lookup_count`.
+- The history page's × (`.history-delete`, with a confirm) calls `LookupStore.deleteLookup(query)`: it removes the history row and that word's saved answers, keeping 漢字辞典 rows because they're per character and shared. Hosted, that's the `delete` action → `delete_lookup` in `db/schema.sql`. A tab already open on lookup.html keeps the word in memory until reload.
 - `lookup.html?q=語&mode=dict` opens a word directly (used by the history page); the query string is removed after it opens.
 - Schema: `db/schema.sql`. Server env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ACCESS_CODE`. The browser never sees the Supabase key; RLS has no policies, so only the server key can read or write.
 
