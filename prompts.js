@@ -223,6 +223,8 @@ function buildFuriPrompt(query) {
 // 解析: parseKanjiResponse / 候補:, 形:, 補足:, 使用:（0〜4）, 表記:
 // 2026-10-25: 形 に同じ読みの別の語（類義語）が入ることと、補足 と 使用 が食いちがうことがあったので、
 // 「形 は Q と同じ語・同じ読み」「使用・表記 は 補足 と同じ判断」を足し、補足 を 使用 より先に書かせる。
+// 2026-10-25: Q 自体が 形 とちがう漢字表記（穿く → 履く など）のとき、補足 が Q の表記にふれなかったので、
+// 「補足 で Q の表記の使われ方も一言」を足す。
 // パーサーはラベルで読むので行の順番は自由。
 function buildKanjiPrompt(query, context) {
   const lines = [
@@ -230,10 +232,11 @@ function buildKanjiPrompt(query, context) {
     ...buildSuggestionRules(),
     "形 must be a spelling of the same word as Q, with the same reading. Never give a synonym or a different word with a similar meaning. If the word itself has no established kanji spelling, write なし.",
     "補足 states your judgment. 使用 and 表記 must express that same judgment (e.g. if 補足 says the word is usually written in kana, 使用 is 2 and 表記 is kana).",
+    "If Q is itself a kanji spelling that differs from 形 (e.g. Q 穿く, 形 履く), 補足 must also briefly say how Q's spelling is used or regarded (e.g. 表外読み, older or literary, used for certain objects), then how the word is usually written.",
     "Output these 5 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
     "候補: <most likely intended word, or なし>",
     "形: <principal kanji spelling, or なし if no established kanji spelling exists>",
-    "補足: <one short Japanese sentence for a learner: how the word is usually written>",
+    "補足: <one or two short Japanese sentences for a learner: how the word is usually written>",
     "使用: <0-4>",
     "表記: <kana | either | kanji>",
     "",
