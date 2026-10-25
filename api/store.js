@@ -17,9 +17,11 @@
 // POST { action: "delete", query, cmpKey? }
 //        → 204   removes the word from history and its saved answers, except shared 漢字辞典 rows (delete_lookup)
 
-const MODES = new Set(["dict", "kanji", "sentence", "thes", "cmp", "jiten"]);
+const MODES = new Set(["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"]);
 const LEVELS = new Set(["standard", "gakusei"]);
-const MAX_QUERY = 200;
+const MAX_QUERY = 400; // ふりがなモードでは文をそのまま入れるので、語より長くてよい
+// entries の in.(…) は URL に入る。ふりがなの文は長いので、URL が長くなりすぎないよう何回かに分けて引く。
+const MAX_IN_LIST_CHARS = 6000;
 const MAX_KEYS = 200;
 const MAX_SAVE_ROWS = 20;
 const MAX_ENTRY_BYTES = 64 * 1024;
@@ -117,14 +119,38 @@ async function history(params) {
   return { items, total: Number.isFinite(total) ? total : items.length };
 }
 
+// キーを、エンコード後の in.(…) が MAX_IN_LIST_CHARS を超えない束に分ける
+function chunkKeys(keys) {
+  const chunks = [];
+  let cur = [];
+  let len = 0;
+  for (const k of keys) {
+    const size = encodeURIComponent(k).length + 6;
+    if (cur.length && len + size > MAX_IN_LIST_CHARS) {
+      chunks.push(cur);
+      cur = [];
+      len = 0;
+    }
+    cur.push(k);
+    len += size;
+  }
+  if (cur.length) chunks.push(cur);
+  return chunks;
+}
+
 async function entries(body) {
   const keys = Array.isArray(body.keys) ? body.keys : [];
   const clean = [...new Set(keys.filter((k) => typeof k === "string" && k && k.length <= MAX_QUERY))].slice(0, MAX_KEYS);
   if (!clean.length) return { entries: [] };
-  const res = await expectOk(
-    await supabase("lookup_entries?select=query,mode,level,entry&query=" + encodeURIComponent(inList(clean)))
+  const pages = await Promise.all(
+    chunkKeys(clean).map(async (chunk) => {
+      const res = await expectOk(
+        await supabase("lookup_entries?select=query,mode,level,entry&query=" + encodeURIComponent(inList(chunk)))
+      );
+      return res.json();
+    })
   );
-  return { entries: await res.json() };
+  return { entries: pages.flat() };
 }
 
 async function recordLookup(body) {

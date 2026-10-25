@@ -17,7 +17,7 @@
       <a class="page-link" href="ondoku.html">音読タイマー →</a>
     </nav>
     <div class="settings" id="settings">
-      <button id="settingsBtn" class="settings-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="settings-badge" aria-hidden="true">🎓</span></button>
+      <button id="settingsBtn" class="settings-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="settings-badge" aria-hidden="true">🎓</span><span class="settings-badge-reading" aria-hidden="true">👓</span></button>
       <div id="settingsMenu" class="settings-menu" role="group" aria-label="設定" hidden>
         <div class="settings-row settings-row-static">
           <span class="settings-label">文字の大きさ</span>
@@ -32,12 +32,12 @@
           <input id="gakuseiBtn" class="switch" type="checkbox" role="switch" />
         </label>
         <label class="settings-row" for="readingModeToggle">
-          <span class="settings-label">読書モード<span class="settings-hint">調べたあと、しばらく「調べる」をお休みにして読み続けます</span></span>
+          <span class="settings-label"><span><span class="reading-glasses" aria-hidden="true">👓</span>読書モード</span><span class="settings-hint">調べたあと、しばらく「調べる」をお休みにして読み続けます</span></span>
           <input id="readingModeToggle" class="switch" type="checkbox" role="switch" />
         </label>
         <label id="readingSecondsRow" class="settings-row" for="readingSecondsInput">
           <span class="settings-label">お休みの時間</span>
-          <span class="settings-num"><input id="readingSecondsInput" type="number" min="1" max="3600" step="1" value="60" inputmode="numeric" />秒</span>
+          <span class="settings-num"><input id="readingSecondsInput" type="number" min="1" max="3600" step="1" value="180" inputmode="numeric" />秒</span>
         </label>
       </div>
     </div>
@@ -51,11 +51,12 @@
       <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
       <button id="helperModeCmp" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /><span class="mode-label">使い分け</span></button>
       <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
+      <button id="helperModeFuri" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperFuriBlock" data-mode="furi"><img class="mode-icon" src="icons_png/web/furigana.png" alt="" width="48" height="48" /><span class="mode-label">ふりがな</span></button>
     </div>
     <form id="helperForm" class="lookup-row">
       <button id="helperModeHandwriting" class="handwriting-toggle" type="button" aria-pressed="false" aria-controls="helperHandwritingBlock" aria-label="手書き入力" title="手書き入力"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /></button>
       <span class="helper-input-wrap">
-        <input id="helperInput" type="text" placeholder="単語やフレーズ" autocomplete="off" autofocus />
+        <textarea id="helperInput" rows="1" placeholder="単語やフレーズ" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" autofocus></textarea>
         <button id="helperClear" class="helper-clear" type="button" aria-label="入力をクリア" title="クリア (Esc)">&times;</button>
       </span>
       <button id="helperBtn" type="submit">調べる</button>
@@ -112,6 +113,11 @@
       <div id="helperJitenBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeJiten">
         <div id="helperJitenList"></div>
       </div>
+      <div id="helperFuriBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeFuri">
+        <div id="helperFuriText" lang="ja"></div>
+        <div id="helperFuriReading" title="クリックでコピー"></div>
+        <div id="helperFuriAlt"></div>
+      </div>
       <div id="helperHandwritingBlock" class="helper-block" role="region" aria-label="手書き入力">
         <div class="handwriting-pad">
           <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
@@ -138,7 +144,7 @@
 
   <dialog id="about" aria-labelledby="aboutTitle">
     <h2 id="aboutTitle">使い方</h2>
-    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・使い分け・漢字辞典で調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
+    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・使い分け・漢字辞典・ふりがなで調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
     <div class="words-help" aria-label="操作">
       <span><kbd>Enter</kbd>調べる</span>
       <span><kbd>訳語 / 英訳</kbd>辞書で、訳語は語そのものの英語（読みの下）、英訳は定義の英語（定義の下）</span>
@@ -146,7 +152,8 @@
       <span><kbd>類義語</kbd>クリックでその語を調べる</span>
       <span><kbd>もしかして</kbd>辞書・漢字表記で、打ちまちがいや変換ミス（賞も無い など）のときは、正しそうな語だけを出します。押すとその語を同じタブで調べる</span>
       <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>
-      <span><kbd>漢字辞典</kbd>入力の漢字を1字ずつ（訓読み・音読み・意味・英語・よく使う言葉）。言葉をクリックで辞書へ</span>
+      <span><kbd>ふりがな</kbd>語・フレーズ・動詞・文の読みだけ（意味は出しません）。入力欄が2行になり、長い文も折り返します。漢字の上にふりがな、下に全体の読み（クリックでコピー）</span>
+      <span><kbd>漢字辞典</kbd>入力の漢字を1字ずつ（訓読み・音読み・意味・英語・よく使う言葉）。言葉をクリックで辞書へ。「よく使う言葉」の右の丸いアイコン（辞書・例文・漢字辞典・類義語・漢字表記）で、クリックしたときの調べ方を切り替え（色がついているのが選択中）</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます。漢字辞典タブを押すと自動で開きます</span>
       <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
       <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>

@@ -59,17 +59,20 @@ body.lookup-body {
 }
 
 .lookup-page #helperModes {
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
-/* アイコンを上、ラベルを下。幅と高さをそろえて6つを同じ大きさに */
+/* アイコンを上、ラベルを下。幅と高さをそろえて7つを同じ大きさに */
+/* 7つが1行に収まらない幅では、折り返さずに少しずつ細くなる（min-width: 0） */
 .lookup-page .helper-mode {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  flex: 0 0 6.5rem;
+  flex: 0 1 6.5rem;
+  min-width: 0;
   width: 6.5rem;
   padding: 10px 6px 8px;
   font-size: 0.95rem;
@@ -102,10 +105,12 @@ body.lookup-body {
 }
 
 /* 入力欄: 少し細くして中央に。左端に手書き入力のトグル（検索ではなく入力方法） */
+/* 幅は <input> だったころと同じ（入力欄の中身の幅で決まっていたのを固定。textarea だと中身の幅が変わるので） */
 .lookup-page .lookup-row {
   gap: 10px;
   align-items: center;
-  max-width: 40rem;
+  width: 100%;
+  max-width: 30rem;
   margin: 0 auto;
 }
 
@@ -149,9 +154,16 @@ body.lookup-body {
 }
 
 .lookup-page #helperInput {
+  height: calc(1.2em + 26px);
   padding: 12px 20px;
   font-size: 1.15rem;
   background: var(--card);
+}
+
+/* ふりがな: ほかのモードの2倍の高さ */
+.lookup-page[data-mode="furi"] #helperInput {
+  height: calc(2 * (1.2em + 26px));
+  border-radius: 18px;
 }
 
 .lookup-page .helper-input-wrap #helperInput {
@@ -195,6 +207,21 @@ body.lookup-body {
 
 .lookup-page #helperKana {
   font-size: 1.8rem;
+}
+
+/* ふりがな: 見出しは辞書の読み（#helperKana）と同じ大きさ */
+.lookup-page #helperFuriText {
+  font-size: 1.8rem;
+}
+
+.lookup-page #helperFuriReading {
+  margin-top: 8px;
+  font-size: 1.15rem;
+}
+
+.lookup-page #helperFuriAlt {
+  margin-top: 8px;
+  font-size: 0.95rem;
 }
 
 .lookup-page #helperGloss {
@@ -384,8 +411,24 @@ body.lookup-body {
   padding: 1px 8px;
 }
 
-.lookup-page .jiten-card > .thes-label {
+.lookup-page .jiten-words-head {
+  gap: 14px;
   margin-top: 16px;
+}
+
+.lookup-page .jiten-follow {
+  gap: 8px;
+}
+
+.lookup-page .jiten-follow-btn {
+  width: 34px;
+  height: 34px;
+  border-width: 2px;
+}
+
+.lookup-page .jiten-follow-btn .mode-icon {
+  width: 20px;
+  height: 20px;
 }
 
 .lookup-page .jiten-message {
@@ -445,7 +488,7 @@ body.lookup-body {
     flex-basis: 3.15rem;
     width: 3.15rem;
     padding: 7px 1px 5px;
-    font-size: 0.66rem;
+    font-size: 0.6rem;
     letter-spacing: -0.02em;
   }
 

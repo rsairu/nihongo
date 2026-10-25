@@ -5,8 +5,8 @@
 
   const PAGE_SIZE = 50;
   const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale"; // vocab_clicker.js と同じ
-  const MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten"];
-  const MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典" };
+  const MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"];
+  const MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   const listEl = document.getElementById("historyList");
@@ -75,6 +75,7 @@
     a.dataset.mode = mode;
 
     const word = el("span", "history-word", item.query);
+    word.title = item.query;
     const body = el("span", "history-body-text");
     const reading = (item.dict && item.dict.reading) || (item.context && item.context.reading) || "";
     const meaning = (item.dict && item.dict.ja) || (item.context && item.context.meaning) || "";
@@ -129,7 +130,7 @@
 
   async function deleteRow(query, li, btn) {
     const ok = window.confirm(
-      "「" + query + "」を履歴から削除しますか？\n保存した答え（辞書・漢字表記・例文・類義語・使い分け）も消えます。元には戻せません。"
+      "「" + query + "」を履歴から削除しますか？\n保存した答え（辞書・漢字表記・例文・類義語・使い分け・ふりがな）も消えます。元には戻せません。"
     );
     if (!ok) return;
     btn.disabled = true;

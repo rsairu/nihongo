@@ -10,6 +10,7 @@ const CLAUDE_MODEL = "claude-haiku-4-5";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5";
 
 // モード別の設定。temperature を省くと 0。max_tokens は Vercel のプロキシ側で 1024 が上限（api/claude.js）。
+// noGakusei: true のモードは小6モードのハーネスをかけない（vocab_clicker.js の requestPrompt / persistModeEntry）。
 const PROMPT_SETTINGS = {
   dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 400,  temperature: 0 },   // 辞書（定義）
   en:       { model: CLAUDE_MODEL,        maxTokens: 200,  temperature: 0 },   // 辞書（英訳を表示）
@@ -18,7 +19,10 @@ const PROMPT_SETTINGS = {
   jiten:    { model: CLAUDE_MODEL_SONNET, maxTokens: 480,  temperature: 0 },   // 漢字辞典（1字1リクエスト）
   thes:     { model: CLAUDE_MODEL,        maxTokens: 280,  temperature: 0 },   // 類義語
   cmp:      { model: CLAUDE_MODEL_SONNET, maxTokens: 1000, temperature: 0 },   // 使い分け
-  kanji:    { model: CLAUDE_MODEL_SONNET, maxTokens: 220,  temperature: 0 }    // 漢字表記
+  kanji:    { model: CLAUDE_MODEL_SONNET, maxTokens: 220,  temperature: 0 },   // 漢字表記
+  // ふりがな: 読みだけ。文を入れることもあるので max_tokens は多め（使った分しかかからない）。
+  // noGakusei: 読みは小6モードでも同じなので、ハーネスをかけず、答えも2つのレベルで共有する（保存は standard）。
+  furi:     { model: CLAUDE_MODEL_SONNET, maxTokens: 1000, temperature: 0, noGakusei: true }
 };
 
 // ── もしかして（辞書・漢字表記で共通）────────────
@@ -189,6 +193,30 @@ function buildCmpPrompt(words, context) {
   words.forEach((w, i) => lines.push(CMP_LETTERS[i] + ": " + w));
   if (single && context && context.meaning) lines.push("Meaning of A in the learner's context: " + context.meaning);
   return lines.join("\n");
+}
+
+// ── ふりがな ────────────────────────────
+// 語・フレーズ・動詞・文の読みだけ。意味・訳・説明はいらない。
+// 解析: parseFuriResponse / ルビ:, 読み:, 別:
+//   ルビ: Q をそのまま写し、漢字（や数字）のかたまりのすぐ後ろに {よみ} を足した形。かな・記号には付けない。
+//   読み: Q 全体のひらがな。ルビ: の本文が Q と合わないときは、アプリは ルビ を捨てて 読み だけ出す。
+//   別:   1語だけで、意味のちがう別の読みがあるとき（生物 → なまもの）。なければ なし。
+function buildFuriPrompt(query) {
+  return [
+    "Give the reading of this Japanese text (a word, phrase, verb or sentence). Readings only: no meaning, translation or commentary.",
+    "Read it the way a native speaker would read it aloud in this context: correct rendaku, 熟字訓 (今日・大人・明日), counters and numbers.",
+    "Output these 3 lines and nothing else:",
+    "ルビ: <Q copied exactly, character for character, with its hiragana reading in {} right after each run of kanji or digits. Kana, katakana and punctuation get no {}.>",
+    "読み: <all of Q in hiragana (katakana words stay katakana), punctuation kept>",
+    "別: <only if Q is a single word or set phrase with another common reading that changes the meaning, list those readings separated by 、; otherwise なし>",
+    "",
+    "Example for 昨日は雨が降った。",
+    "ルビ: 昨日{きのう}は雨{あめ}が降{ふ}った。",
+    "読み: きのうはあめがふった。",
+    "別: なし",
+    "",
+    "Q: " + query
+  ].join("\n");
 }
 
 // ── 漢字表記 ────────────────────────────

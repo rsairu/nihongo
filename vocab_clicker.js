@@ -5,7 +5,8 @@ const GAKUSEI_STORAGE_KEY = "vocab-clicker-gakusei-mode";
 const READING_MODE_STORAGE_KEY = "vocab-clicker-reading-mode";
 const READING_SECONDS_STORAGE_KEY = "vocab-clicker-reading-seconds";
 const READING_UNTIL_STORAGE_KEY = "vocab-clicker-reading-until";
-const READING_SECONDS_DEFAULT = 60;
+const JITEN_FOLLOW_STORAGE_KEY = "vocab-clicker-jiten-follow";
+const READING_SECONDS_DEFAULT = 180;
 const READING_SECONDS_MIN = 1;
 const READING_SECONDS_MAX = 3600;
 const FONT_SCALE_MIN = 0.8;
@@ -81,6 +82,10 @@ const helperCmpBlock = document.getElementById("helperCmpBlock");
 const helperCmp = document.getElementById("helperCmp");
 const helperJitenBlock = document.getElementById("helperJitenBlock");
 const helperJitenList = document.getElementById("helperJitenList");
+const helperFuriBlock = document.getElementById("helperFuriBlock");
+const helperFuriText = document.getElementById("helperFuriText");
+const helperFuriReading = document.getElementById("helperFuriReading");
+const helperFuriAlt = document.getElementById("helperFuriAlt");
 const lookupBox = document.querySelector(".lookup-box");
 // lookup.html はリトリーブのパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
 const HAS_PARSER = Boolean(inputEl && bubblesEl);
@@ -88,9 +93,9 @@ const HELPER_HISTORY_LIMIT = 10;
 // 保存先（store.js）。履歴と答えを残して、読み込み時に直近の履歴を戻す。store.js がなければ今まで通りメモリだけ。
 const lookupStore = typeof LookupStore === "object" && LookupStore ? LookupStore : null;
 const DEEP_LINK_WAIT_MS = 5000; // ?q= で開いたとき、保存済みの答えを待つ上限
-const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten"];
-const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典" };
-const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典" };
+const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"];
+const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな" };
+const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典", furi: "読み" };
 // 漢字辞典: 入力の中の漢字を1字ずつ引く（1字1リクエスト、並列）。キャッシュも1字単位なので 景色 と 風景 で 景 を共有する。
 const JITEN_MAX_CHARS = 4;
 const JITEN_MAX_WORDS = 6;
@@ -131,9 +136,11 @@ let lastExcludedCount = 0;
 // 小6モード (gakusei_mode): 返ってくる説明をすべて小学6年生レベルにする。レベルごとにキャッシュを分ける。
 let gakuseiMode = false;
 function createCacheBank() {
-  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {}, cmp: {} };
+  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {}, cmp: {}, furi: {} };
 }
 const cacheBanks = { standard: createCacheBank(), gakusei: createCacheBank() };
+// 読みはレベルで変わらないので、ふりがな（noGakusei）は2つのレベルで同じキャッシュを使う
+cacheBanks.gakusei.furi = cacheBanks.standard.furi;
 let sentenceCache = cacheBanks.standard.sentence;
 let dictCache = cacheBanks.standard.dict;
 let kanjiCache = cacheBanks.standard.kanji;
@@ -142,6 +149,8 @@ let thesCache = cacheBanks.standard.thes;
 let cmpCache = cacheBanks.standard.cmp;
 /** @type {Record<string, object>} one entry per kanji character */
 let jitenCache = cacheBanks.standard.jiten;
+/** @type {Record<string, {ruby: {t: string, r?: string}[], reading: string, alt: string[]}>} ふりがな */
+let furiCache = cacheBanks.standard.furi;
 /** @type {AbortController | null} */
 let helperEnAbort = null;
 let helperEnRequestId = 0;
@@ -155,10 +164,10 @@ let helperGlossShown = false;
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
-/** @type {"dict" | "kanji" | "sentence" | "thes" | "cmp" | "jiten"} */
+/** @type {"dict" | "kanji" | "sentence" | "thes" | "cmp" | "jiten" | "furi"} */
 let helperMode = "dict";
 let helperSentenceEnShown = false;
-/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, cmp: object, jiten: object}[]} */
+/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, cmp: object, jiten: object, furi: object}[]} */
 let helperHistory = [];
 
 function extractNewVocabBlock(raw) {
@@ -697,6 +706,58 @@ async function fetchJitenEntry(query, signal) {
   return { kanji, skipped: chars.length - shown.length };
 }
 
+// ふりがな: 読みだけ（prompts.js の buildFuriPrompt）。ルビ: は Q に {よみ} を足した形。
+// entry: { ruby: [{ t, r? }], reading, alt: [] }。ruby が空なら Q をそのまま出す（かなだけの Q、またはモデルが Q を書き換えたとき）。
+const FURI_RUBY_RE = /([\u3400-\u9fff\uf900-\ufaff々〆ヶ0-9０-９A-Za-zＡ-Ｚａ-ｚ]+)\{([^{}]*)\}/g;
+
+function parseRubyLine(line) {
+  const segs = [];
+  const pushText = (raw) => {
+    const t = raw.replace(/\{[^{}]*\}/g, ""); // かなの後ろなどに付いた余計な {…} は捨てる
+    if (!t) return;
+    const last = segs[segs.length - 1];
+    if (last && !last.r) last.t += t;
+    else segs.push({ t });
+  };
+  let at = 0;
+  for (const m of line.matchAll(FURI_RUBY_RE)) {
+    pushText(line.slice(at, m.index));
+    const r = m[2].trim();
+    if (r && r !== m[1]) segs.push({ t: m[1], r });
+    else pushText(m[1]);
+    at = m.index + m[0].length;
+  }
+  pushText(line.slice(at));
+  return segs;
+}
+
+// ルビの本文が Q と同じか。空白と全角・半角の差は見ない。
+function sameFuriText(a, b) {
+  const key = (s) => String(s || "").normalize("NFKC").replace(/\s+/g, "");
+  return key(a) === key(b);
+}
+
+function parseFuriResponse(raw, query) {
+  const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
+  const pick = (re) => {
+    const m = text.match(re);
+    return m ? m[1].trim() : "";
+  };
+  const rubyRaw = stripWrappingQuotes(pick(/^\s*(?:ルビ|ruby)\s*[:：]\s*(.+)$/im));
+  const altRaw = stripWrappingQuotes(pick(/^\s*(?:別|ほかの読み|other)\s*[:：]\s*(.+)$/im));
+  let reading = stripWrappingQuotes(pick(/^\s*(?:読み(?:方)?|よみ|reading)\s*[:：]\s*(.+)$/im));
+  const segs = rubyRaw ? parseRubyLine(rubyRaw) : [];
+  if (!reading && segs.length) reading = segs.map((s) => s.r || s.t).join("");
+  if (!reading) throw new Error("empty");
+  const ruby = segs.some((s) => s.r) && sameFuriText(segs.map((s) => s.t).join(""), query) ? segs : [];
+  const alt = isNoneList(altRaw) ? [] : splitReadings(altRaw).filter((r) => r !== reading);
+  return { ruby, reading, alt };
+}
+
+async function fetchFuriEntry(query, signal) {
+  return parseFuriResponse(await requestPrompt("furi", buildFuriPrompt(query), signal), query);
+}
+
 function apiKey() {
   return typeof CLAUDE_API_KEY === "string" ? CLAUDE_API_KEY : "";
 }
@@ -725,28 +786,28 @@ function getAccessCode(forcePrompt) {
 // プロキシ経由ではフラグだけ送り、サーバー側 (api/claude.js) が同じ gakusei.js でかける。
 const GakuseiHarness = typeof Gakusei === "object" && Gakusei ? Gakusei : null;
 
-function buildClaudeBody(prompt, maxTokens, temperature, model) {
+function buildClaudeBody(prompt, maxTokens, temperature, model, wantGakusei) {
   const base = {
     model: model || CLAUDE_MODEL,
     max_tokens: maxTokens,
     temperature: temperature == null ? 0 : temperature,
     messages: [{ role: "user", content: prompt }]
   };
-  if (useProxy()) return JSON.stringify(gakuseiMode ? { ...base, gakusei_mode: true } : base);
-  if (gakuseiMode && GakuseiHarness) return JSON.stringify(GakuseiHarness.applyRequest(base, true));
+  if (useProxy()) return JSON.stringify(wantGakusei ? { ...base, gakusei_mode: true } : base);
+  if (wantGakusei && GakuseiHarness) return JSON.stringify(GakuseiHarness.applyRequest(base, true));
   return JSON.stringify(base);
 }
 
-// prompts.js の PROMPT_SETTINGS（モデル・max_tokens・temperature）で送る
+// prompts.js の PROMPT_SETTINGS（モデル・max_tokens・temperature）で送る。noGakusei のモードは小6モードでもハーネスなし。
 function requestPrompt(kind, prompt, signal) {
   const cfg = PROMPT_SETTINGS[kind];
-  return requestClaudeText(prompt, cfg.maxTokens, signal, cfg.temperature, cfg.model);
+  return requestClaudeText(prompt, cfg.maxTokens, signal, cfg.temperature, cfg.model, Boolean(cfg.noGakusei));
 }
 
-async function requestClaudeText(prompt, maxTokens, signal, temperature, model) {
+async function requestClaudeText(prompt, maxTokens, signal, temperature, model, noGakusei) {
   const direct = !useProxy();
-  const wantGakusei = gakuseiMode;
-  const body = buildClaudeBody(prompt, maxTokens, temperature, model);
+  const wantGakusei = gakuseiMode && !noGakusei;
+  const body = buildClaudeBody(prompt, maxTokens, temperature, model, wantGakusei);
   const send = (code) =>
     useProxy()
       ? fetch(PROXY_URL, { method: "POST", headers: { "content-type": "application/json", "x-access-code": code }, body, signal })
@@ -1002,7 +1063,8 @@ function createHelperItem(query, context) {
     sentence: createModeState(),
     thes: createModeState(),
     jiten: createModeState(),
-    cmp: createModeState()
+    cmp: createModeState(),
+    furi: createModeState()
   };
 }
 
@@ -1023,6 +1085,10 @@ function modeState(item, mode) {
   if (mode === "jiten") {
     if (!item.jiten) item.jiten = createModeState();
     return item.jiten;
+  }
+  if (mode === "furi") {
+    if (!item.furi) item.furi = createModeState();
+    return item.furi;
   }
   return item.dict;
 }
@@ -1057,6 +1123,7 @@ function cachedModeEntry(mode, query) {
   }
   if (mode === "thes") return thesCache[query];
   if (mode === "cmp") return cmpCache[cmpCacheKey(query)];
+  if (mode === "furi") return furiCache[query];
   if (mode === "jiten") {
     const chars = jitenChars(query);
     if (!chars.length) return null;
@@ -1072,6 +1139,7 @@ function cacheModeEntry(mode, query, entry) {
   else if (mode === "sentence") sentenceCache[query] = (entry && entry.sentences) || [];
   else if (mode === "thes") thesCache[query] = entry;
   else if (mode === "cmp") cmpCache[cmpCacheKey(query)] = entry;
+  else if (mode === "furi") furiCache[query] = entry;
   else if (mode === "jiten") {
     for (const k of (entry && entry.kanji) || []) jitenCache[k.char] = k;
   } else dictCache[dictCacheKey(query, "")] = entry;
@@ -1083,8 +1151,9 @@ function cacheModeEntry(mode, query, entry) {
 // 保存のキーはメモリのキャッシュと同じ: 語 / 使い分けは cmpCacheKey / 漢字辞典は1字ずつ。
 function persistModeEntry(mode, query, entry) {
   if (!lookupStore || !entry) return;
-  const level = lookupStore.levelOf(gakuseiMode);
-  const model = PROMPT_SETTINGS[mode] ? PROMPT_SETTINGS[mode].model : null;
+  const cfg = PROMPT_SETTINGS[mode];
+  const level = lookupStore.levelOf(gakuseiMode && !(cfg && cfg.noGakusei));
+  const model = cfg ? cfg.model : null;
   let rows;
   if (mode === "jiten") rows = (entry.kanji || []).map((k) => ({ query: k.char, mode, level, entry: k, model }));
   else if (mode === "sentence") rows = [{ query, mode, level, entry: entry.sentences || [], model }];
@@ -1094,8 +1163,11 @@ function persistModeEntry(mode, query, entry) {
   if (rows.length) lookupStore.save(rows);
 }
 
-function storeKeysFor(query) {
-  const keys = [query, cmpCacheKey(query)];
+// modes を渡すと、使い分けのキーは使い分けで調べた語のときだけ足す（ふりがなの文は長く、ほぼ同じ長さのキーがもう1本増えるので）。
+// 漢字辞典のキーは1字ずつで短く、ほかの語と共有しているので今までどおり足す。
+function storeKeysFor(query, modes) {
+  const keys = [query];
+  if (!Array.isArray(modes) || modes.includes("cmp")) keys.push(cmpCacheKey(query));
   for (const ch of jitenChars(query).slice(0, JITEN_MAX_CHARS)) keys.push(ch);
   return keys.filter(Boolean);
 }
@@ -1137,7 +1209,7 @@ async function hydrateFromStore(extraQuery) {
   const recent = await lookupStore.history({ limit: HELPER_HISTORY_LIMIT });
   const items = (recent && recent.items) || [];
   const keys = new Set();
-  for (const row of items) for (const k of storeKeysFor(row.query)) keys.add(k);
+  for (const row of items) for (const k of storeKeysFor(row.query, row.modes)) keys.add(k);
   if (extraQuery) for (const k of storeKeysFor(extraQuery)) keys.add(k);
   applyStoredEntries(await lookupStore.entries([...keys]));
   restoreStoredHistory(items);
@@ -1606,6 +1678,70 @@ function jitenReadingRow(label, readings, isKun) {
   return row;
 }
 
+// 漢字辞典の「よく使う言葉」をクリックしたときに開くモード（追いかけ調べ）。辞書がふつう。
+// 漢字辞典に短い意味はもう出ているので、例文や、その言葉の漢字辞典・類義語・漢字表記へ直接行けるように。
+// 全カード共通の1つの値。localStorage に保存（このブラウザだけ）。
+const JITEN_FOLLOW_MODES = [
+  { mode: "dict", icon: "lookup.png" },
+  { mode: "sentence", icon: "sentence.png" },
+  { mode: "jiten", icon: "jiten.png" },
+  { mode: "thes", icon: "thesaurus.png" },
+  { mode: "kanji", icon: "kana.png" }
+];
+let jitenFollowMode = "dict";
+try {
+  const saved = localStorage.getItem(JITEN_FOLLOW_STORAGE_KEY);
+  if (JITEN_FOLLOW_MODES.some((m) => m.mode === saved)) jitenFollowMode = saved;
+} catch (_) {}
+
+function jitenFollowTitle(entry) {
+  return HELPER_MODE_LABELS[jitenFollowMode] + "で調べる: " + [entry.word, entry.reading].filter(Boolean).join(" ");
+}
+
+function setJitenFollowMode(mode) {
+  if (!JITEN_FOLLOW_MODES.some((m) => m.mode === mode)) return;
+  jitenFollowMode = mode;
+  try { localStorage.setItem(JITEN_FOLLOW_STORAGE_KEY, mode); } catch (_) {}
+  // 表示中のカードすべての切り替えと言葉の色・title をそろえる
+  for (const list of helperJitenList.querySelectorAll(".jiten-words")) list.dataset.follow = mode;
+  for (const btn of helperJitenList.querySelectorAll(".jiten-follow-btn")) {
+    const on = btn.dataset.mode === mode;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  for (const chip of helperJitenList.querySelectorAll(".jiten-word")) {
+    if (chip._jitenEntry) chip.title = jitenFollowTitle(chip._jitenEntry);
+  }
+}
+
+function renderJitenFollowPicker() {
+  const group = document.createElement("div");
+  group.className = "jiten-follow";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "言葉をクリックしたときの調べ方");
+  for (const m of JITEN_FOLLOW_MODES) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "jiten-follow-btn";
+    btn.dataset.mode = m.mode;
+    const on = m.mode === jitenFollowMode;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", "言葉を" + HELPER_MODE_LABELS[m.mode] + "で調べる");
+    btn.title = "言葉をクリックしたら" + HELPER_MODE_LABELS[m.mode] + "で調べる";
+    const img = document.createElement("img");
+    img.className = "mode-icon";
+    img.src = "icons_png/web/" + m.icon;
+    img.alt = "";
+    img.width = 48;
+    img.height = 48;
+    btn.append(img);
+    btn.addEventListener("click", () => setJitenFollowMode(m.mode));
+    group.append(btn);
+  }
+  return group;
+}
+
 function renderJitenWordChip(entry, ch) {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -1635,10 +1771,11 @@ function renderJitenWordChip(entry, ch) {
     gloss.textContent = entry.gloss;
     btn.append(gloss);
   }
-  btn.title = "辞書で調べる: " + [entry.word, entry.reading].filter(Boolean).join(" ");
+  btn._jitenEntry = entry;
+  btn.title = jitenFollowTitle(entry);
   btn.addEventListener("click", () => {
     helperLookup(entry.word, {
-      mode: "dict",
+      mode: jitenFollowMode,
       context: { reading: entry.reading || "", meaning: entry.gloss || "" }
     });
   });
@@ -1683,12 +1820,16 @@ function renderJitenCard(k) {
 
   const words = k.words || [];
   if (words.length) {
+    const wordsHead = document.createElement("div");
+    wordsHead.className = "jiten-words-head";
     const label = document.createElement("div");
     label.className = "thes-label";
     label.textContent = "よく使う言葉";
-    card.append(label);
+    wordsHead.append(label, renderJitenFollowPicker());
+    card.append(wordsHead);
     const list = document.createElement("div");
     list.className = "thes-list jiten-words";
+    list.dataset.follow = jitenFollowMode;
     for (const w of words) list.append(renderJitenWordChip(w, k.char));
     card.append(list);
   }
@@ -1725,12 +1866,53 @@ function renderJitenEntry(entry) {
   }
 }
 
+// ふりがな: 入力をそのまま大きく出し、漢字に <ruby> で読みを付ける。その下に全体の読み（クリックでコピー）。
+function renderFuriMessage(text) {
+  helperFuriText.textContent = text;
+  helperFuriReading.textContent = "";
+  helperFuriAlt.textContent = "";
+}
+
+function renderFuriPending(text) {
+  helperResult.classList.remove("error");
+  renderFuriMessage(text);
+}
+
+function renderFuriError(message) {
+  helperResult.classList.add("error");
+  renderFuriMessage(message);
+}
+
+function renderFuriEntry(entry, query) {
+  helperResult.classList.remove("error");
+  helperFuriText.replaceChildren();
+  const segs = entry && entry.ruby && entry.ruby.length ? entry.ruby : [{ t: query }];
+  for (const s of segs) {
+    if (!s.r) {
+      helperFuriText.append(document.createTextNode(s.t));
+      continue;
+    }
+    const ruby = document.createElement("ruby");
+    const rt = document.createElement("rt");
+    rt.textContent = s.r;
+    ruby.append(document.createTextNode(s.t), rt);
+    helperFuriText.append(ruby);
+  }
+  helperFuriReading.textContent = (entry && entry.reading) || "";
+  const alt = (entry && entry.alt) || [];
+  helperFuriAlt.textContent = alt.length ? "ほかの読み：" + alt.join("、") : "";
+}
+
 const HELPER_INPUT_PLACEHOLDER = helperInput.placeholder;
 const CMP_INPUT_PLACEHOLDER = "2〜3語を「・」で区切る（例: 補償・報酬）";
+const FURI_INPUT_PLACEHOLDER = "語・フレーズ・文（読みだけ）";
 
 function renderHelperModes() {
   lookupBox.dataset.mode = helperMode;
-  helperInput.placeholder = helperMode === "cmp" ? CMP_INPUT_PLACEHOLDER : HELPER_INPUT_PLACEHOLDER;
+  helperInput.placeholder =
+    helperMode === "cmp" ? CMP_INPUT_PLACEHOLDER
+    : helperMode === "furi" ? FURI_INPUT_PLACEHOLDER
+    : HELPER_INPUT_PLACEHOLDER;
   if (handwritingOpen) lookupBox.dataset.uiTab = HANDWRITING_TAB;
   else delete lookupBox.dataset.uiTab;
   // 手書きは入力方法なので、開いている間も選択中の調べ方タブを強調したままにする
@@ -1757,6 +1939,7 @@ function paintHelperItem(item) {
   helperThesBlock.classList.toggle("visible", helperMode === "thes");
   helperCmpBlock.classList.toggle("visible", helperMode === "cmp");
   helperJitenBlock.classList.toggle("visible", helperMode === "jiten");
+  helperFuriBlock.classList.toggle("visible", helperMode === "furi");
   renderHelperModes();
 
   const st = modeState(item, helperMode);
@@ -1782,6 +1965,10 @@ function paintHelperItem(item) {
     if (st.error) renderJitenError(st.error);
     else if (st.entry) renderJitenEntry(st.entry);
     else renderJitenPending("…");
+  } else if (helperMode === "furi") {
+    if (st.error) renderFuriError(st.error);
+    else if (st.entry) renderFuriEntry(st.entry, item.query);
+    else renderFuriPending("…");
   } else if (st.error) {
     renderSentenceError(st.error);
   } else if (st.entry) {
@@ -1870,6 +2057,8 @@ async function runHelperFetch(item, mode, options) {
       parsed = await fetchCmpEntry(item.query, item.context, controller.signal);
     } else if (mode === "jiten") {
       parsed = await fetchJitenEntry(item.query, controller.signal);
+    } else if (mode === "furi") {
+      parsed = await fetchFuriEntry(item.query, controller.signal);
     } else {
       parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal, item.query);
     }
@@ -1884,6 +2073,7 @@ async function runHelperFetch(item, mode, options) {
       : mode === "thes" ? "類義語を読み込めませんでした"
       : mode === "cmp" ? "使い分けを読み込めませんでした"
       : mode === "jiten" ? (err && err.userMessage) || "漢字辞典を読み込めませんでした"
+      : mode === "furi" ? "読みを読み込めませんでした"
       : "読み込めませんでした";
     if (keepSentence) {
       finishHelperFetch(item, mode, fetchId, st.entry, "");
@@ -1895,7 +2085,7 @@ async function runHelperFetch(item, mode, options) {
 
 function helperLookup(queryOverride, options) {
   const opts = options || {};
-  const query = (queryOverride != null ? String(queryOverride) : helperInput.value).trim();
+  const query = stripLineBreaks(queryOverride != null ? String(queryOverride) : helperInput.value).trim();
   if (!query) return;
   // 読書モードの休み中は、どこから呼ばれても（ボタン・Enter・バブル・ドラッグ・類義語・手書き）調べない
   if (!opts.skipReadingCooldown && readingBlocked()) return;
@@ -2427,6 +2617,27 @@ helperForm.addEventListener("submit", (e) => {
   helperLookup();
 });
 
+// 入力欄は <textarea>（ふりがなモードで2行に折り返すため。ほかのモードでは1行・横スクロールで今までの見た目）。
+// 改行は入れない: Enter で調べる、貼り付けた改行は消す。
+function stripLineBreaks(text) {
+  return String(text || "").replace(/[\r\n]+/g, "");
+}
+
+helperInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return;
+  e.preventDefault();
+  if (typeof helperForm.requestSubmit === "function") helperForm.requestSubmit();
+  else helperLookup();
+});
+
+helperInput.addEventListener("input", () => {
+  const value = helperInput.value;
+  if (!/[\r\n]/.test(value)) return;
+  const caret = stripLineBreaks(value.slice(0, helperInput.selectionStart)).length;
+  helperInput.value = stripLineBreaks(value);
+  helperInput.setSelectionRange(caret, caret);
+});
+
 // 入力欄のクリア: × ボタン / Esc キー（表示は CSS の :placeholder-shown で制御）
 const helperClear = document.getElementById("helperClear");
 function clearHelperInput() {
@@ -2822,6 +3033,20 @@ helperKana.addEventListener("click", async () => {
   }
 });
 
+helperFuriReading.addEventListener("click", async () => {
+  const text = helperFuriReading.textContent.trim();
+  if (!text || text === "コピーしました" || helperResult.classList.contains("error")) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    helperFuriReading.textContent = "コピーしました";
+    setTimeout(() => {
+      if (helperFuriReading.textContent === "コピーしました") helperFuriReading.textContent = text;
+    }, 900);
+  } catch {
+    /* ignore */
+  }
+});
+
 helperEnBtn.addEventListener("click", async (e) => {
   e.stopPropagation();
   if (!helperEntry) return;
@@ -2908,6 +3133,7 @@ function setGakuseiMode(enabled, save) {
   thesCache = bank.thes;
   jitenCache = bank.jiten;
   cmpCache = bank.cmp;
+  furiCache = bank.furi;
   renderGakuseiBtn();
 
   if (helperEnAbort) helperEnAbort.abort();
@@ -3158,10 +3384,10 @@ function renderReadingSettings() {
   renderSettingsBtn();
 }
 
-// ⚙ の見た目: 読書モード中は緑、小6モード中は 🎓 バッジ（CSS）。title にオンの項目を並べる
+// ⚙ の見た目: 読書モード中は 👓 バッジ、小6モード中は 🎓 バッジ（CSS, html.reading-mode / html.gakusei-mode）。title にオンの項目を並べる
 function renderSettingsBtn() {
   if (!settingsBtn) return;
-  settingsBtn.classList.toggle("reading-on", readingMode);
+  document.documentElement.classList.toggle("reading-mode", readingMode);
   const on = [];
   if (gakuseiMode) on.push("小6モード");
   if (readingMode) on.push(`読書モード ${readingSeconds} 秒`);

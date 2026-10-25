@@ -18,6 +18,8 @@
   --cmp-soft: #f1e6cc;
   --jiten: #8c2f39;
   --jiten-soft: #f1dfe0;
+  --furi: #4b4f9e;
+  --furi-soft: #e2e3f2;
   --handwriting: #6b7078; /* 入力方法なので調べ方タブとは別のグレー */
   --handwriting-soft: #e6e7ea;
   --selected: #2f6f4e;
@@ -178,25 +180,27 @@ h1 {
   transform: rotate(60deg);
 }
 
-/* 読書モードがオンのあいだは歯車を緑に */
-.settings-btn.reading-on {
-  color: var(--selected);
-  border-color: var(--selected);
-  background: var(--selected-soft);
-}
-
-/* 小6モード中は ⚙ の右下に 🎓 */
-.settings-badge {
+/* 小6モード中は ⚙ の右下に 🎓、読書モード中は左下に 👓 */
+.settings-badge,
+.settings-badge-reading {
   display: none;
   position: absolute;
-  right: -7px;
   bottom: -5px;
   font-size: 13px;
   line-height: 1;
   pointer-events: none;
 }
 
-.gakusei-mode .settings-badge {
+.settings-badge {
+  right: -7px;
+}
+
+.settings-badge-reading {
+  left: -7px;
+}
+
+.gakusei-mode .settings-badge,
+.reading-mode .settings-badge-reading {
   display: block;
 }
 
@@ -442,6 +446,20 @@ button.minor.known-error {
   opacity: 1;
 }
 
+/* 読書モードの 👓 も同じく、オフのあいだは薄いグレー */
+.reading-glasses {
+  display: inline-block;
+  margin-right: 4px;
+  filter: grayscale(1);
+  opacity: 0.55;
+  transition: filter 0.2s, opacity 0.2s;
+}
+
+.reading-mode .reading-glasses {
+  filter: none;
+  opacity: 1;
+}
+
 .gakusei-pop .gakusei-cap {
   animation: gakusei-cap-toss 0.6s cubic-bezier(0.3, 1.5, 0.5, 1);
 }
@@ -631,6 +649,13 @@ button:disabled {
   border-color: #e0cdcf;
 }
 
+.lookup-box[data-mode="furi"] {
+  --accent: var(--furi);
+  --accent-soft: var(--furi-soft);
+  background: #f6f6fb;
+  border-color: #cfd0e6;
+}
+
 .lookup-box[data-ui-tab="handwriting"] {
   --accent: var(--handwriting);
   --accent-soft: var(--handwriting-soft);
@@ -714,6 +739,11 @@ button:disabled {
   border-color: var(--jiten);
 }
 
+.helper-mode[data-mode="furi"].active {
+  background: var(--furi-soft);
+  border-color: var(--furi);
+}
+
 body.dragging-word .helper-mode {
   border-style: dashed;
 }
@@ -740,6 +770,10 @@ body.dragging-word .helper-mode[data-mode="cmp"] {
 
 body.dragging-word .helper-mode[data-mode="jiten"] {
   border-color: var(--jiten);
+}
+
+body.dragging-word .helper-mode[data-mode="furi"] {
+  border-color: var(--furi);
 }
 
 .helper-mode.drop-target {
@@ -775,6 +809,11 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .helper-mode[data-mode="jiten"].drop-target {
   background: var(--jiten);
   border-color: var(--jiten);
+}
+
+.helper-mode[data-mode="furi"].drop-target {
+  background: var(--furi);
+  border-color: var(--furi);
 }
 
 .lookup-row {
@@ -825,15 +864,35 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   opacity: 1;
 }
 
+/* 入力欄は <textarea>。ふりがな以外では1行で折り返さず横にスクロール（<input> だったころと同じ見た目）。
+   高さ = 1行 (line-height 1.2em) + 上下の padding + 枠。lookup.css で padding を変えたら高さも合わせる。 */
 #helperInput {
+  display: block;
   flex: 1;
   min-width: 0;
+  min-height: 0; /* 解析欄の textarea の下限 (88px) を受け継がない */
+  height: calc(1.2em + 18px);
   padding: 8px 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--bg);
   color: var(--ink);
   font: inherit;
+  line-height: 1.2;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+/* ふりがな: 文を入れることがあるので、ほかのモードの2倍の高さにして折り返す */
+.lookup-box[data-mode="furi"] #helperInput {
+  height: calc(2 * (1.2em + 18px));
+  line-height: 1.45;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
 }
 
 #helperInput:focus {
@@ -1050,6 +1109,7 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 .helper-tab-pip[data-mode="thes"] { background: var(--thes); }
 .helper-tab-pip[data-mode="cmp"] { background: var(--cmp); }
 .helper-tab-pip[data-mode="jiten"] { background: var(--jiten); }
+.helper-tab-pip[data-mode="furi"] { background: var(--furi); }
 
 .helper-tab-mode {
   max-width: none;
@@ -1105,6 +1165,12 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   border: 1px solid #dcc3c5;
 }
 
+.helper-tab[data-mode="furi"] {
+  background: #e6e6f3;
+  color: #43467f;
+  border: 1px solid #c9cae2;
+}
+
 .helper-tab:hover {
   opacity: 1;
   color: var(--ink);
@@ -1132,6 +1198,10 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 
 .helper-tab[data-mode="jiten"]:hover {
   border-color: var(--jiten);
+}
+
+.helper-tab[data-mode="furi"]:hover {
+  border-color: var(--furi);
 }
 
 .helper-tab.active {
@@ -1170,6 +1240,11 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   border-color: var(--jiten);
 }
 
+.helper-tab.active[data-mode="furi"] {
+  background: var(--furi-soft);
+  border-color: var(--furi);
+}
+
 .helper-tab-group.expanded > .helper-tab-word.helper-tab,
 .helper-tab-group.expanded > .helper-tab-word.helper-tab:hover,
 .helper-tab-group.expanded > .helper-tab-word.helper-tab.active {
@@ -1204,7 +1279,8 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 #helperResult.error #helperKanjiForm,
 #helperResult.error #helperSentence,
 #helperResult.error .thes-empty,
-#helperResult.error .jiten-message {
+#helperResult.error .jiten-message,
+#helperResult.error #helperFuriText {
   color: var(--danger);
 }
 
@@ -1398,6 +1474,10 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   --accent: var(--jiten);
   --accent-soft: var(--jiten-soft);
 }
+.lookup-box[data-mode="furi"] .handwriting-candidate {
+  --accent: var(--furi);
+  --accent-soft: var(--furi-soft);
+}
 
 .handwriting-status {
   align-self: center;
@@ -1415,6 +1495,50 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
   font-size: 0.75rem;
   line-height: 1.2;
 }
+
+/* ふりがな: 入力そのものが見出しなので、上の小さい語は出さない */
+.lookup-box[data-mode="furi"] #helperWord {
+  display: none;
+}
+
+/* ふりがな: 入力を大きく（漢字の上に <ruby> の読み）、その下に全体の読み。 */
+#helperFuriText {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+
+/* 読みが漢字より長くても、漢字の間をあけずに中央にそろえる */
+#helperFuriText ruby {
+  ruby-align: center;
+}
+
+#helperFuriText rt {
+  color: var(--accent);
+  font-size: 0.55em;
+  font-weight: 600;
+}
+
+#helperFuriReading {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+#helperFuriAlt {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+#helperFuriAlt:empty { display: none; }
 
 /* 読み の下の行に 訳語。 */
 .helper-reading-row {
@@ -1773,12 +1897,93 @@ button.did-you-mean-btn:focus-visible {
   color: var(--muted);
 }
 
-.jiten-card > .thes-label {
+/* 「よく使う言葉」のラベルと、その右の追いかけ調べの切り替え（辞書・例文・漢字辞典・類義語） */
+.jiten-words-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-top: 10px;
 }
 
-.jiten-word:hover {
+.jiten-follow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jiten-follow-btn[data-mode="dict"] { --follow: var(--dict); --follow-soft: var(--dict-soft); }
+.jiten-follow-btn[data-mode="sentence"] { --follow: var(--sentence); --follow-soft: var(--sentence-soft); }
+.jiten-follow-btn[data-mode="jiten"] { --follow: var(--jiten); --follow-soft: var(--jiten-soft); }
+.jiten-follow-btn[data-mode="thes"] { --follow: var(--thes); --follow-soft: var(--thes-soft); }
+.jiten-follow-btn[data-mode="kanji"] { --follow: var(--kanji); --follow-soft: var(--kanji-soft); }
+
+/* 手書きトグルと同じ丸ボタン。枠はモードの色をうすく、選択中は濃く */
+.jiten-follow-btn {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-color: color-mix(in srgb, var(--follow) 35%, var(--line));
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.jiten-follow-btn .mode-icon {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.jiten-follow-btn:hover,
+.jiten-follow-btn:focus-visible {
+  border-color: var(--follow);
+}
+
+.jiten-follow-btn:hover .mode-icon,
+.jiten-follow-btn.active .mode-icon {
+  opacity: 1;
+}
+
+.jiten-follow-btn.active {
+  background: var(--follow-soft);
+  border-color: var(--follow);
+}
+
+/* 言葉にカーソルを乗せると、選んでいる調べ方の色に */
+.jiten-word:hover,
+.jiten-words[data-follow="dict"] .jiten-word:hover {
+  border-color: var(--dict);
+  background: var(--dict-soft);
+}
+
+.jiten-words[data-follow="sentence"] .jiten-word:hover {
+  border-color: var(--sentence);
+  background: var(--sentence-soft);
+}
+
+.jiten-words[data-follow="jiten"] .jiten-word:hover {
   border-color: var(--jiten);
+  background: var(--jiten-soft);
+}
+
+.jiten-words[data-follow="thes"] .jiten-word:hover {
+  border-color: var(--thes);
+  background: var(--thes-soft);
+}
+
+.jiten-words[data-follow="kanji"] .jiten-word:hover {
+  border-color: var(--kanji);
+  background: var(--kanji-soft);
 }
 
 .jiten-hit {

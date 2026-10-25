@@ -113,12 +113,18 @@ button.history-delete:focus-visible {
 .history-row[data-mode="thes"] { border-left-color: var(--thes); }
 .history-row[data-mode="cmp"] { border-left-color: var(--cmp); }
 .history-row[data-mode="jiten"] { border-left-color: var(--jiten); }
+.history-row[data-mode="furi"] { border-left-color: var(--furi); }
 
+/* ふりがなモードの文は長いので2行まで（全文は title） */
 .history-word {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.3;
   word-break: break-word;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .history-body-text {
