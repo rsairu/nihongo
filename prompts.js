@@ -1,4 +1,4 @@
-// prompts.js — 調べるパネルが Claude に送るプロンプトをすべてここに集める。
+// prompts.js — リトリーブのパネルが Claude に送るプロンプトをすべてここに集める。
 // lookup.html と vocab_clicker.html の両方で、vocab_clicker.js より前に読み込む（普通の <script>。ここの名前はそのまま共有される）。
 //
 // 文言は自由に変えてよい。ただし各プロンプトは「ラベル: 内容」の行で返させていて、

@@ -1,4 +1,4 @@
--- 調べる (lookup) persistence — run once in the Supabase SQL editor.
+-- リトリーブ (lookup) persistence — run once in the Supabase SQL editor.
 -- Access is server-only: api/store.js uses the service-role key, gated by ACCESS_CODE.
 -- RLS is on with no policies, so the anon/public key can't read or write anything.
 

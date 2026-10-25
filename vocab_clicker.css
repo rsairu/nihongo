@@ -338,7 +338,7 @@ h1 {
   margin: 0 0 12px;
 }
 
-/* parse-col の子（入力欄・操作行）をグリッドに直接並べ、入力欄と調べるパネルの下端を揃える */
+/* parse-col の子（入力欄・操作行）をグリッドに直接並べ、入力欄とリトリーブのパネルの下端を揃える */
 .parse-col {
   display: contents;
 }
@@ -355,7 +355,7 @@ h1 {
 
 textarea {
   width: 100%;
-  flex: 1 1 auto; /* リサイズした高さが行の高さになる（下限は調べるパネルの高さ） */
+  flex: 1 1 auto; /* リサイズした高さが行の高さになる（下限はリトリーブのパネルの高さ） */
   height: 0;
   min-height: 88px;
   padding: 14px 132px 14px 14px;

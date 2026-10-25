@@ -1,4 +1,4 @@
-// 調べるの保存先。lookup.html / vocab_clicker.html / history.html が読み込む（vocab_clicker.js より先）。
+// リトリーブの保存先。lookup.html / vocab_clicker.html / history.html が読み込む（vocab_clicker.js より先）。
 // Hosted (Vercel): /api/store → Supabase（端末をまたいで残る）。アクセスコードは api/claude.js と共通。
 // Local (localhost / file://): このブラウザの localStorage に保存（その端末だけ）。
 // 書き込みはすべて投げっぱなし。失敗しても調べる機能は止めない。

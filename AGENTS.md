@@ -6,7 +6,7 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 
 | File | What it is |
 | --- | --- |
-| `lookup.html` + `lookup.css` | **調べる — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). |
+| `lookup.html` + `lookup.css` | **リトリーブ — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). The name (formerly 調べる) is a play on "retrieve": Pila the dog fetching a word's meaning. Her icon (`icons_png/web/pila.png`) sits left of the title. |
 | `vocab_clicker.html` + `vocab_clicker.css` | 語彙クリッカー — vocab parser and bubbles, with a compact copy of the lookup panel on the side. |
 | `ondoku.html` / `ondoku.js` / `ondoku.css` | 音読タイマー — separate page; doesn't share the lookup code. |
 | `history.html` + `history.js` + `history.css` | 履歴 — every word ever looked up, 50 per page. Linked from the end of the history tabs. Loads only `store.js`, not the lookup code. |
@@ -85,3 +85,4 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
 
 - `config.js` holds local settings and keys, and it isn't deployed (see `.vercelignore`). Start from `config.example.js`.
 - `known_words.json`, `prompt.txt` and `reading_log.json` drive the vocab-extraction sessions. Don't reformat them.
+- Icons: full-size sources live in `icons_png/`, and the pages load the smaller copies in `icons_png/web/` (192 px). `favicon.ico` (16/32/48 px, made from `icons_png/pila.png`) sits at the root, and every page links it with `<link rel="icon">`.

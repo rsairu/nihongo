@@ -1,4 +1,4 @@
-// Vercel serverless function: the 調べる page's saved lookups, kept in Supabase.
+// Vercel serverless function: the リトリーブ page's saved lookups, kept in Supabase.
 // Env vars (Vercel → Project → Settings → Environment Variables):
 //   SUPABASE_URL               https://<project>.supabase.co
 //   SUPABASE_SERVICE_ROLE_KEY  server-only key (never sent to the browser); RLS stays closed to everyone else

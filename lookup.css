@@ -1,7 +1,19 @@
-/* lookup.html: 調べるパネルをページ全体に（枠・背景なし）。vocab_clicker.css の上に重ねる */
+/* lookup.html: リトリーブのパネルをページ全体に（枠・背景なし）。vocab_clicker.css の上に重ねる */
 
 body.lookup-body {
   padding-bottom: 24px;
+}
+
+/* アプリ名の左にピラ（犬）のアイコン。retrieve（取ってくる）にかけた名前 */
+.app-title {
+  white-space: nowrap;
+}
+
+.app-title .app-icon {
+  width: 1.6em;
+  height: 1.6em;
+  margin-right: 0.3em;
+  vertical-align: -0.45em;
 }
 
 .page-links {

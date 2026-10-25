@@ -80,7 +80,7 @@ const helperCmp = document.getElementById("helperCmp");
 const helperJitenBlock = document.getElementById("helperJitenBlock");
 const helperJitenList = document.getElementById("helperJitenList");
 const lookupBox = document.querySelector(".lookup-box");
-// lookup.html は調べるパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
+// lookup.html はリトリーブのパネルだけのページ（解析欄・バブル・既知リストなし）。同じスクリプトを共有する。
 const HAS_PARSER = Boolean(inputEl && bubblesEl);
 const HELPER_HISTORY_LIMIT = 10;
 // 保存先（store.js）。履歴と答えを残して、読み込み時に直近の履歴を戻す。store.js がなければ今まで通りメモリだけ。

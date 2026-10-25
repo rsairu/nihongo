@@ -21,7 +21,7 @@
   let lastDay = "";
   let loading = false;
 
-  // 調べるページと同じ文字サイズ
+  // リトリーブのページと同じ文字サイズ
   try {
     const scale = parseFloat(localStorage.getItem(FONT_SCALE_STORAGE_KEY));
     if (scale >= 0.8 && scale <= 1.6) document.documentElement.style.fontSize = scale * 100 + "%";
