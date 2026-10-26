@@ -6,6 +6,7 @@ const READING_MODE_STORAGE_KEY = "vocab-clicker-reading-mode";
 const READING_SECONDS_STORAGE_KEY = "vocab-clicker-reading-seconds";
 const READING_UNTIL_STORAGE_KEY = "vocab-clicker-reading-until";
 const JITEN_FOLLOW_STORAGE_KEY = "vocab-clicker-jiten-follow";
+const MODE_LABELS_HIDDEN_STORAGE_KEY = "vocab-clicker-mode-labels-hidden";
 const READING_SECONDS_DEFAULT = 180;
 const READING_SECONDS_MIN = 1;
 const READING_SECONDS_MAX = 3600;
@@ -39,13 +40,15 @@ const fontIncBtn = document.getElementById("fontIncBtn");
 const fontResetBtn = document.getElementById("fontResetBtn");
 const gakuseiBtn = document.getElementById("gakuseiBtn"); // ⚙ メニューの中のスイッチ (checkbox)
 const gakuseiRow = document.getElementById("gakuseiRow");
-// ⚙ 設定メニュー（ドロップダウン）: 文字の大きさ・小6モード・読書モード。どれも localStorage に保存。
+// ⚙ 設定メニュー（ドロップダウン）: 文字の大きさ・アイコンだけ表示・小6モード・待てモード。どれも localStorage に保存。
 const settingsWrap = document.getElementById("settings");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsMenu = document.getElementById("settingsMenu");
 const readingModeToggle = document.getElementById("readingModeToggle");
 const readingSecondsInput = document.getElementById("readingSecondsInput");
 const readingSecondsRow = document.getElementById("readingSecondsRow");
+// アイコンだけ表示: lookup.html のモードタブの文字を消す（クリッカーでは行が hidden）
+const modeLabelsToggle = document.getElementById("modeLabelsToggle");
 const helperForm = document.getElementById("helperForm");
 const helperInput = document.getElementById("helperInput");
 const helperBtn = document.getElementById("helperBtn");
@@ -112,7 +115,7 @@ const HANDWRITING_AUTO_RECOGNIZE_MS = 850; // ペンを離してから自動認�
 let handwritingOpen = false;
 // 漢字辞典タブを押して自動で開いたとき true。ほかのタブへ移ったら自動で閉じる（手で開閉したら false）
 let handwritingAutoOpened = false;
-// 読書モード (⚙ メニュー): 調べたあと readingSeconds 秒は新しく調べられない（調べるボタンがグレーになる）。
+// 待てモード (⚙ メニュー): 調べたあと readingSeconds 秒は新しく調べられない（調べるボタンがグレーになる）。
 // 辞書に頼らず読み続けるため。履歴タブを開き直す・英訳・例文の作り直しは止めない。
 let readingMode = false;
 let readingSeconds = READING_SECONDS_DEFAULT;
@@ -1226,7 +1229,7 @@ async function initLookupStore() {
     const hydrated = hydrateFromStore(deepQuery).catch((err) => console.warn("[store] 履歴を読み込めませんでした", err));
     if (deepQuery) await Promise.race([hydrated, new Promise((r) => setTimeout(r, DEEP_LINK_WAIT_MS))]);
   }
-  // 履歴ページから開くのは保存済みの語を見直すだけなので、読書モードの休みには数えない
+  // 履歴ページから開くのは保存済みの語を見直すだけなので、待てモードの休みには数えない
   if (deepQuery) helperLookup(deepQuery, { ...(HELPER_MODES.includes(deepMode) ? { mode: deepMode } : {}), skipReadingCooldown: true });
 }
 
@@ -1343,7 +1346,7 @@ function renderSenseLines(container, text) {
 }
 
 // 「見つかりませんでした。もしかして：〇〇」。〇〇 はボタンで、押すと同じタブ（mode）でその語を調べる。
-// helperLookup を通すので、読書モードの休み中は他の入口と同じく調べない。
+// helperLookup を通すので、待てモードの休み中は他の入口と同じく調べない。
 function renderSuggestion(container, word, mode) {
   const box = document.createElement("div");
   box.className = "did-you-mean";
@@ -2089,7 +2092,7 @@ function helperLookup(queryOverride, options) {
   const opts = options || {};
   const query = stripLineBreaks(queryOverride != null ? String(queryOverride) : helperInput.value).trim();
   if (!query) return;
-  // 読書モードの休み中は、どこから呼ばれても（ボタン・Enter・バブル・ドラッグ・類義語・手書き）調べない
+  // 待てモードの休み中は、どこから呼ばれても（ボタン・Enter・バブル・ドラッグ・類義語・手書き）調べない
   if (!opts.skipReadingCooldown && readingBlocked()) return;
   if (HELPER_MODES.includes(opts.mode)) helperMode = opts.mode;
   handwritingOpen = false;
@@ -3275,7 +3278,31 @@ window.addEventListener("storage", (e) => {
 });
 applyFontScale(loadFontScale(), false);
 
-// 読書モード。設定と休みの終わりの時刻は両ページで共有して localStorage に保存（DB には書かない）。
+// アイコンだけ表示。html.mode-labels-hidden でモードタブの文字を消す（lookup.css）。localStorage のみ
+function setModeLabelsHidden(hidden, save) {
+  const on = Boolean(hidden);
+  document.documentElement.classList.toggle("mode-labels-hidden", on);
+  if (modeLabelsToggle) modeLabelsToggle.checked = on;
+  if (save) {
+    try {
+      localStorage.setItem(MODE_LABELS_HIDDEN_STORAGE_KEY, on ? "1" : "0");
+    } catch (_) {
+      /* ignore */
+    }
+  }
+}
+
+if (modeLabelsToggle) modeLabelsToggle.addEventListener("change", () => setModeLabelsHidden(modeLabelsToggle.checked, true));
+window.addEventListener("storage", (e) => {
+  if (e.key === MODE_LABELS_HIDDEN_STORAGE_KEY) setModeLabelsHidden(e.newValue === "1", false);
+});
+try {
+  setModeLabelsHidden(localStorage.getItem(MODE_LABELS_HIDDEN_STORAGE_KEY) === "1", false);
+} catch (_) {
+  /* ignore */
+}
+
+// 待てモード。設定と休みの終わりの時刻は両ページで共有して localStorage に保存（DB には書かない）。
 function clampReadingSeconds(value) {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return READING_SECONDS_DEFAULT;
@@ -3360,7 +3387,7 @@ function renderReadingCooldown() {
       btn.dataset.wait = String(secs);
       btn.style.setProperty("--reading-left", pct.toFixed(1) + "%");
       btn.setAttribute("aria-disabled", "true");
-      btn.title = `読書モード: あと ${secs} 秒で調べられます`;
+      btn.title = `待てモード: あと ${secs} 秒で調べられます`;
     } else {
       delete btn.dataset.wait;
       btn.style.removeProperty("--reading-left");
@@ -3386,13 +3413,13 @@ function renderReadingSettings() {
   renderSettingsBtn();
 }
 
-// ⚙ の見た目: 読書モード中は 👓 バッジ、小6モード中は 🎓 バッジ（CSS, html.reading-mode / html.gakusei-mode）。title にオンの項目を並べる
+// ⚙ の見た目: 待てモード中は ⏳ バッジ、小6モード中は 🎓 バッジ（CSS, html.reading-mode / html.gakusei-mode）。title にオンの項目を並べる
 function renderSettingsBtn() {
   if (!settingsBtn) return;
   document.documentElement.classList.toggle("reading-mode", readingMode);
   const on = [];
   if (gakuseiMode) on.push("小6モード");
-  if (readingMode) on.push(`読書モード ${readingSeconds} 秒`);
+  if (readingMode) on.push(`待てモード ${readingSeconds} 秒`);
   settingsBtn.title = on.length ? `設定（${on.join("・")}）` : "設定";
 }
 

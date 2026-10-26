@@ -7,6 +7,8 @@
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="stylesheet" href="vocab_clicker.css" />
   <link rel="stylesheet" href="lookup.css" />
+  <!-- ⚙ アイコンだけ表示: 文字が一瞬見えてから消えないよう、描画前にクラスを付ける（本体は vocab_clicker.js） -->
+  <script>try { if (localStorage.getItem("vocab-clicker-mode-labels-hidden") === "1") document.documentElement.classList.add("mode-labels-hidden"); } catch (_) {}</script>
 </head>
 <body class="lookup-body">
   <header class="topbar">
@@ -17,7 +19,7 @@
       <a class="page-link" href="ondoku.html">音読タイマー →</a>
     </nav>
     <div class="settings" id="settings">
-      <button id="settingsBtn" class="settings-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="settings-badge" aria-hidden="true">🎓</span><span class="settings-badge-reading" aria-hidden="true">👓</span></button>
+      <button id="settingsBtn" class="settings-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="settingsMenu" aria-label="設定" title="設定"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span class="settings-badge" aria-hidden="true">🎓</span><span class="settings-badge-reading" aria-hidden="true">⏳</span></button>
       <div id="settingsMenu" class="settings-menu" role="group" aria-label="設定" hidden>
         <div class="settings-row settings-row-static">
           <span class="settings-label">文字の大きさ</span>
@@ -27,12 +29,16 @@
             <button id="fontIncBtn" class="font-size-btn" type="button" aria-label="文字を大きく" title="文字を大きく">A+</button>
           </div>
         </div>
+        <label id="modeLabelsRow" class="settings-row" for="modeLabelsToggle">
+          <span class="settings-label"><span>アイコンだけ表示</span><span class="settings-hint">調べ方のアイコンの下の文字を消します（スマホで見やすく）</span></span>
+          <input id="modeLabelsToggle" class="switch" type="checkbox" role="switch" />
+        </label>
         <label id="gakuseiRow" class="settings-row" for="gakuseiBtn">
           <span class="settings-label"><span><span class="gakusei-cap" aria-hidden="true">🎓</span>小6モード</span><span class="settings-hint">説明・意味・例文をすべて小学6年生が読めるやさしさにします</span></span>
           <input id="gakuseiBtn" class="switch" type="checkbox" role="switch" />
         </label>
         <label class="settings-row" for="readingModeToggle">
-          <span class="settings-label"><span><span class="reading-glasses" aria-hidden="true">👓</span>読書モード</span><span class="settings-hint">調べたあと、しばらく「調べる」をお休みにして読み続けます</span></span>
+          <span class="settings-label"><span><span class="cooldown-icon" aria-hidden="true">⏳</span>待てモード</span><span class="settings-hint">調べたあと、しばらく「調べる」をお休みにして、調べるペースを落とします</span></span>
           <input id="readingModeToggle" class="switch" type="checkbox" role="switch" />
         </label>
         <label id="readingSecondsRow" class="settings-row" for="readingSecondsInput">
@@ -45,13 +51,13 @@
 
   <main class="lookup-box lookup-page" data-mode="dict">
     <div id="helperModes" role="tablist" aria-label="調べ方">
-      <button id="helperModeDict" class="helper-mode active" type="button" role="tab" aria-selected="true" aria-controls="helperDictBlock" data-mode="dict"><img class="mode-icon" src="icons_png/web/lookup.png" alt="" width="48" height="48" /><span class="mode-label">辞書</span></button>
-      <button id="helperModeSentence" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence"><img class="mode-icon" src="icons_png/web/sentence.png" alt="" width="48" height="48" /><span class="mode-label">例文</span></button>
-      <button id="helperModeJiten" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten"><img class="mode-icon" src="icons_png/web/jiten.png" alt="" width="48" height="48" /><span class="mode-label">漢字辞典</span></button>
-      <button id="helperModeThes" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
-      <button id="helperModeCmp" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /><span class="mode-label">使い分け</span></button>
-      <button id="helperModeKanji" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
-      <button id="helperModeFuri" class="helper-mode" type="button" role="tab" aria-selected="false" aria-controls="helperFuriBlock" data-mode="furi"><img class="mode-icon" src="icons_png/web/furigana.png" alt="" width="48" height="48" /><span class="mode-label">ふりがな</span></button>
+      <button id="helperModeDict" class="helper-mode active" type="button" role="tab" title="辞書" aria-selected="true" aria-controls="helperDictBlock" data-mode="dict"><img class="mode-icon" src="icons_png/web/lookup.png" alt="" width="48" height="48" /><span class="mode-label">辞書</span></button>
+      <button id="helperModeSentence" class="helper-mode" type="button" role="tab" title="例文" aria-selected="false" aria-controls="helperSentenceBlock" data-mode="sentence"><img class="mode-icon" src="icons_png/web/sentence.png" alt="" width="48" height="48" /><span class="mode-label">例文</span></button>
+      <button id="helperModeJiten" class="helper-mode" type="button" role="tab" title="漢字辞典" aria-selected="false" aria-controls="helperJitenBlock" data-mode="jiten"><img class="mode-icon" src="icons_png/web/jiten.png" alt="" width="48" height="48" /><span class="mode-label">漢字辞典</span></button>
+      <button id="helperModeThes" class="helper-mode" type="button" role="tab" title="類義語" aria-selected="false" aria-controls="helperThesBlock" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /><span class="mode-label">類義語</span></button>
+      <button id="helperModeCmp" class="helper-mode" type="button" role="tab" title="使い分け" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /><span class="mode-label">使い分け</span></button>
+      <button id="helperModeKanji" class="helper-mode" type="button" role="tab" title="漢字表記" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
+      <button id="helperModeFuri" class="helper-mode" type="button" role="tab" title="ふりがな" aria-selected="false" aria-controls="helperFuriBlock" data-mode="furi"><img class="mode-icon" src="icons_png/web/furigana.png" alt="" width="48" height="48" /><span class="mode-label">ふりがな</span></button>
     </div>
     <form id="helperForm" class="lookup-row">
       <button id="helperModeHandwriting" class="handwriting-toggle" type="button" aria-pressed="false" aria-controls="helperHandwritingBlock" aria-label="手書き入力" title="手書き入力"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /></button>
@@ -159,8 +165,9 @@
       <span><kbd>＋ 追加</kbd>オンにすると候補が下書きにたまり、画面がクリアされます。最後に「調べる」</span>
       <span><kbd>⚙ 小6モード</kbd>説明・意味・例文を小学6年生向けのやさしい言葉に</span>
       <span><kbd>履歴</kbd>調べた語と答えは保存され、次に開いたときもタブに戻ります。タブの最後の「すべての履歴」で一覧へ</span>
+      <span><kbd>⚙ アイコンだけ表示</kbd>調べ方のタブの文字を消して、アイコンだけにします。スマホで押しやすく</span>
       <span><kbd>⚙ 文字の大きさ</kbd>A− / A+ で文字を小さく・大きく。真ん中の % を押すと100%に戻ります</span>
-      <span><kbd>⚙ 読書モード</kbd>オンにすると、調べたあと設定した秒数（初期は60秒）だけ「調べる」がお休みになります。辞書に頼らず読み続ける練習に</span>
+      <span><kbd>⚙ 待てモード</kbd>オンにすると、調べたあと設定した秒数（初期は180秒）だけ「調べる」がお休みになります。すぐに調べず、文脈から考える間をつくって、調べるペースを落とします</span>
     </div>
     <p class="lede">単語リストの解析とバブルは「語彙クリッカー」にあります。</p>
     <form method="dialog">

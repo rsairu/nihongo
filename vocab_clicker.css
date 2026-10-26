@@ -136,7 +136,7 @@ h1 {
   color: var(--muted);
 }
 
-/* ⚙ 設定（右上のドロップダウン）。読書モードなど */
+/* ⚙ 設定（右上のドロップダウン）。待てモードなど */
 .settings {
   position: relative;
   align-self: center;
@@ -180,7 +180,7 @@ h1 {
   transform: rotate(60deg);
 }
 
-/* 小6モード中は ⚙ の右下に 🎓、読書モード中は左下に 👓 */
+/* 小6モード中は ⚙ の右下に 🎓、待てモード中は左下に ⏳ */
 .settings-badge,
 .settings-badge-reading {
   display: none;
@@ -238,6 +238,11 @@ h1 {
 
 .settings-row.is-off {
   opacity: 0.5;
+}
+
+/* アイコンだけ表示 は lookup.html だけの設定（クリッカーのタブは文字だけ）。クリッカーでは行を hidden にしている */
+.settings-row[hidden] {
+  display: none;
 }
 
 /* 文字の大きさの行はボタンが並ぶだけ（行全体はクリックできない） */
@@ -446,8 +451,8 @@ button.minor.known-error {
   opacity: 1;
 }
 
-/* 読書モードの 👓 も同じく、オフのあいだは薄いグレー */
-.reading-glasses {
+/* 待てモードの ⏳ も同じく、オフのあいだは薄いグレー */
+.cooldown-icon {
   display: inline-block;
   margin-right: 4px;
   filter: grayscale(1);
@@ -455,7 +460,7 @@ button.minor.known-error {
   transition: filter 0.2s, opacity 0.2s;
 }
 
-.reading-mode .reading-glasses {
+.reading-mode .cooldown-icon {
   filter: none;
   opacity: 1;
 }
@@ -914,7 +919,7 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   filter: brightness(0.88);
 }
 
-/* 読書モードのお休み中: グレーにして、残り時間のゲージ（濃い部分が減っていく）と秒数を出す */
+/* 待てモードのお休み中: グレーにして、残り時間のゲージ（濃い部分が減っていく）と秒数を出す */
 #helperBtn.reading-wait,
 #handwritingDraftLookupBtn.reading-wait {
   background: linear-gradient(90deg, #c4bdb1 var(--reading-left, 100%), #ddd7cd var(--reading-left, 100%));
