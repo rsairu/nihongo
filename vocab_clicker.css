@@ -1081,8 +1081,10 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   white-space: nowrap;
 }
 
+/* 履歴タブの語は 9 文字ぶんまで（ふつうの語は全部見え、文や長い比較は … で切る）。全文は title で見られる */
 .helper-tab-label {
   min-width: 0;
+  max-width: 9em;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1501,12 +1503,14 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   display: none;
 }
 
-/* ふりがな: 入力を大きく（漢字の上に <ruby> の読み）、その下に全体の読み。 */
+/* ふりがな: 入力を大きく（漢字の上に <ruby> の読み）。ルビが付かないときだけ、その下に全体の読み。
+   太字にせず、字間を少しあける。 */
 #helperFuriText {
   margin-top: 2px;
   color: var(--ink);
   font-size: 1.05rem;
-  font-weight: 650;
+  font-weight: 400;
+  letter-spacing: 0.1em;
   line-height: 2;
   overflow-wrap: anywhere;
 }
@@ -1516,10 +1520,12 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   ruby-align: center;
 }
 
+/* ルビは親の字間（px に換算されて受け継がれる）を使わず、詰めたまま */
 #helperFuriText rt {
   color: var(--accent);
   font-size: 0.55em;
-  font-weight: 600;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 #helperFuriReading {

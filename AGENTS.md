@@ -69,8 +69,9 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
   the per-mode colors in `vocab_clicker.css` and `history.css`, `MODES` in `history.js` and `api/store.js`,
   and the `mode` check in `db/schema.sql` (existing Supabase projects need the `alter table` from there).
 - ふりがな (`furi`, `buildFuriPrompt`, `parseFuriResponse`): readings only, no meaning. `ルビ:` is Q with `{よみ}` after each
-  kanji/digit run; `parseRubyLine` turns it into `[{ t, r? }]` for `<ruby>`. If the ruby's base text doesn't match Q
-  (`sameFuriText`), the ruby is dropped and Q is shown plain with the reading under it. `別:` lists other readings that change
+  kanji/digit run; `parseRubyLine` turns it into `[{ t, r? }]` for `<ruby>`. The whole-reading line (`#helperFuriReading`,
+  click to copy) is shown only when there's no ruby: if the ruby's base text doesn't match Q (`sameFuriText`), the ruby is
+  dropped and Q is shown plain with the reading under it. Q and its ruby are normal weight, with a little letter-spacing on Q. `別:` lists other readings that change
   the meaning (生物 → なまもの), shown as ほかの読み.
 - `PROMPT_SETTINGS[mode].noGakusei` (ふりがな): the 小6モード harness isn't applied, the cache object is shared between the two
   levels (`cacheBanks.gakusei.furi = cacheBanks.standard.furi`), and answers are saved as `standard`.

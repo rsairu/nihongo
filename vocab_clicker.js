@@ -1866,7 +1866,8 @@ function renderJitenEntry(entry) {
   }
 }
 
-// ふりがな: 入力をそのまま大きく出し、漢字に <ruby> で読みを付ける。その下に全体の読み（クリックでコピー）。
+// ふりがな: 入力をそのまま大きく出し、漢字に <ruby> で読みを付ける。
+// 全体の読み（クリックでコピー）は、ルビが付かなかったときだけ下に出す。
 function renderFuriMessage(text) {
   helperFuriText.textContent = text;
   helperFuriReading.textContent = "";
@@ -1886,7 +1887,8 @@ function renderFuriError(message) {
 function renderFuriEntry(entry, query) {
   helperResult.classList.remove("error");
   helperFuriText.replaceChildren();
-  const segs = entry && entry.ruby && entry.ruby.length ? entry.ruby : [{ t: query }];
+  const hasRuby = !!(entry && entry.ruby && entry.ruby.length);
+  const segs = hasRuby ? entry.ruby : [{ t: query }];
   for (const s of segs) {
     if (!s.r) {
       helperFuriText.append(document.createTextNode(s.t));
@@ -1898,7 +1900,7 @@ function renderFuriEntry(entry, query) {
     ruby.append(document.createTextNode(s.t), rt);
     helperFuriText.append(ruby);
   }
-  helperFuriReading.textContent = (entry && entry.reading) || "";
+  helperFuriReading.textContent = hasRuby ? "" : (entry && entry.reading) || "";
   const alt = (entry && entry.alt) || [];
   helperFuriAlt.textContent = alt.length ? "ほかの読み：" + alt.join("、") : "";
 }
