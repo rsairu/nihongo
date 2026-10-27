@@ -1903,9 +1903,20 @@ button.did-you-mean-btn:focus-visible {
   color: var(--ink);
 }
 
+/* 読みは漢字辞典の色で太め、送り仮名は細いグレーにして語幹と見分けやすく */
+.jiten-reading {
+  color: var(--jiten);
+  font-weight: 650;
+}
+
 .jiten-readings.jiten-none,
 .jiten-okuri {
   color: var(--muted);
+}
+
+.jiten-okuri {
+  font-weight: 400;
+  margin-left: 0.08em;
 }
 
 /* 「よく使う言葉」のラベルと、その右の追いかけ調べの切り替え（辞書・例文・漢字辞典・類義語） */
