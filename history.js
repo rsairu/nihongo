@@ -14,12 +14,22 @@
   const statusEl = document.getElementById("historyStatus");
   const moreBtn = document.getElementById("historyMoreBtn");
   const noteEl = document.getElementById("historyNote");
+  const filterEl = document.getElementById("historyFilter");
+  const filterBtns = filterEl ? Array.from(filterEl.querySelectorAll("button[data-mode]")) : [];
   const store = window.LookupStore;
 
   let offset = 0;
   let total = 0;
   let lastDay = "";
   let loading = false;
+  // 絞り込み中のモード（"" = すべて）。URL の ?mode= にも入れるので、語を開いて戻っても残る
+  let filterMode = "";
+  // 絞り込みを切り替えたら番号を進める。読み込み中に切り替わった古い結果は捨てる
+  let generation = 0;
+  try {
+    const m = new URLSearchParams(location.search).get("mode") || "";
+    if (MODES.includes(m)) filterMode = m;
+  } catch (_) {}
 
   // リトリーブのページと同じ文字サイズ
   try {
@@ -44,8 +54,9 @@
     return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
   }
 
-  // 辞書で見たことがあれば辞書で、なければ最後に使ったモードで開く（どちらも保存済み）
+  // 絞り込み中ならそのモードで。そうでなければ、辞書で見たことがあれば辞書で、なければ最後に使ったモードで開く（どれも保存済み）
   function openMode(modes) {
+    if (filterMode && modes.includes(filterMode)) return filterMode;
     if (modes.includes("dict")) return "dict";
     return modes.length ? modes[modes.length - 1] : "dict";
   }
@@ -152,19 +163,23 @@
     const left = Math.max(0, total - offset);
     moreBtn.hidden = left === 0;
     moreBtn.textContent = "さらに" + Math.min(PAGE_SIZE, left) + "件（残り" + left + "語）";
-    totalEl.textContent = total ? "全" + total + "語" : "";
-    if (!total) statusEl.textContent = "まだ履歴がありません。調べた語がここに並びます。";
+    const label = filterMode ? MODE_LABELS[filterMode] + "で調べた語 " : "全";
+    totalEl.textContent = total || filterMode ? label + total + "語" : "";
+    if (!total && filterMode) statusEl.textContent = MODE_LABELS[filterMode] + "で調べた語はまだありません。";
+    else if (!total) statusEl.textContent = "まだ履歴がありません。調べた語がここに並びます。";
     else if (!left) statusEl.textContent = "これで全部です。";
     else statusEl.textContent = "";
   }
 
   async function loadMore() {
     if (loading || !store) return;
+    const gen = generation;
     loading = true;
     moreBtn.disabled = true;
     statusEl.textContent = "読み込み中…";
     try {
-      const page = await store.history({ offset, limit: PAGE_SIZE, summary: true });
+      const page = await store.history({ offset, limit: PAGE_SIZE, summary: true, mode: filterMode || undefined });
+      if (gen !== generation) return; // 待っている間に絞り込みが変わった
       const items = (page && page.items) || [];
       total = page && Number.isFinite(page.total) ? page.total : offset + items.length;
       for (const item of items) renderRow(item);
@@ -172,18 +187,58 @@
       if (!items.length) total = offset; // 途中で数が変わっていても止まる
       renderFoot();
     } catch (err) {
+      if (gen !== generation) return;
       console.warn("[history]", err);
       statusEl.textContent = "読み込めませんでした（" + err.message + "）。";
       moreBtn.hidden = false;
       moreBtn.textContent = "もう一度";
     } finally {
-      loading = false;
-      moreBtn.disabled = false;
+      if (gen === generation) {
+        loading = false;
+        moreBtn.disabled = false;
+      }
     }
+  }
+
+  function paintFilter() {
+    for (const btn of filterBtns) {
+      const on = btn.dataset.mode === filterMode;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    if (filterEl) filterEl.dataset.mode = filterMode;
+  }
+
+  // 同じアイコンをもう一度押すと解除。一覧は最初から読み直す（絞り込みはサーバー側でするので、件数とページ送りも合う）
+  function setFilter(mode) {
+    const next = mode && mode !== filterMode ? mode : "";
+    if (next === filterMode && !mode) return; // 「すべて」中に「すべて」
+    filterMode = next;
+    paintFilter();
+    try {
+      const url = new URL(location.href);
+      if (filterMode) url.searchParams.set("mode", filterMode);
+      else url.searchParams.delete("mode");
+      history.replaceState(null, "", url);
+    } catch (_) {}
+    generation += 1;
+    loading = false;
+    offset = 0;
+    total = 0;
+    lastDay = "";
+    listEl.replaceChildren();
+    moreBtn.hidden = true;
+    totalEl.textContent = "";
+    loadMore();
+  }
+
+  for (const btn of filterBtns) {
+    btn.addEventListener("click", () => setFilter(btn.dataset.mode));
   }
 
   moreBtn.addEventListener("click", loadMore);
 
+  paintFilter();
   if (!store) {
     statusEl.textContent = "store.js を読み込めませんでした。";
   } else {

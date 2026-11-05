@@ -9,7 +9,7 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 | `lookup.html` + `lookup.css` | **リトリーブ — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). The name (formerly 調べる) is a play on "retrieve": Pila the dog fetching a word's meaning. Her icon (`icons_png/web/pila.png`) sits left of the title. |
 | `vocab_clicker.html` + `vocab_clicker.css` | 語彙クリッカー — vocab parser and bubbles, with a compact copy of the lookup panel on the side. |
 | `ondoku.html` / `ondoku.js` / `ondoku.css` | 音読タイマー — separate page; doesn't share the lookup code. |
-| `history.html` + `history.js` + `history.css` | 履歴 — every word ever looked up, 50 per page. Linked from the end of the history tabs. Loads only `store.js`, not the lookup code. |
+| `history.html` + `history.js` + `history.css` | 履歴 — every word ever looked up, 50 per page. Linked from the end of the history tabs. Loads only `store.js`, not the lookup code. A filter row at the top (`#historyFilter`: すべて + the mode icons in the same order as lookup.html's `#helperModes`) shows only words looked up in one mode; clicking the active icon again clears it. The filter runs server-side (`LookupStore.history({ mode })` → `modes=cs.{…}` in `api/store.js`), so the count and paging stay right, and it's kept in `?mode=` so it survives going to a word and back. While filtered, rows open in that mode. Each row's left edge is a 6px mode-colored band that fades into the card (a background gradient under a transparent left border). |
 
 ## lookup.html is canonical
 

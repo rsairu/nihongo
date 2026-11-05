@@ -28,6 +28,89 @@ body.history-body {
   margin: 0 auto;
 }
 
+/* 調べ方で絞り込む: リトリーブのモードの列と同じアイコン・同じ順。漢字辞典の「よく使う言葉」の丸ボタンと同じ作り */
+.history-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.history-filter-btn[data-mode="dict"] { --filter: var(--dict); --filter-soft: var(--dict-soft); }
+.history-filter-btn[data-mode="sentence"] { --filter: var(--sentence); --filter-soft: var(--sentence-soft); }
+.history-filter-btn[data-mode="jiten"] { --filter: var(--jiten); --filter-soft: var(--jiten-soft); }
+.history-filter-btn[data-mode="thes"] { --filter: var(--thes); --filter-soft: var(--thes-soft); }
+.history-filter-btn[data-mode="cmp"] { --filter: var(--cmp); --filter-soft: var(--cmp-soft); }
+.history-filter-btn[data-mode="kanji"] { --filter: var(--kanji); --filter-soft: var(--kanji-soft); }
+.history-filter-btn[data-mode="furi"] { --filter: var(--furi); --filter-soft: var(--furi-soft); }
+
+button.history-filter-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-color: color-mix(in srgb, var(--filter) 35%, var(--line));
+  border-radius: 50%;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.history-filter-btn .mode-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  opacity: 0.6;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+button.history-filter-btn:hover,
+button.history-filter-btn:focus-visible {
+  border-color: var(--filter);
+}
+
+.history-filter-btn:hover .mode-icon,
+.history-filter-btn.active .mode-icon {
+  opacity: 1;
+}
+
+button.history-filter-btn.active {
+  background: var(--filter-soft);
+  border-color: var(--filter);
+}
+
+.history-filter-btn.active .mode-icon {
+  transform: scale(1.06);
+}
+
+button.history-filter-all {
+  height: 42px;
+  padding: 0 16px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 2px solid var(--line);
+  font-size: 0.85rem;
+}
+
+button.history-filter-all:hover,
+button.history-filter-all:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+button.history-filter-all.active {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--ink);
+  font-weight: 650;
+}
+
 .history-note {
   margin: 0 0 12px;
   color: var(--muted);
@@ -86,34 +169,43 @@ button.history-delete:focus-visible {
   color: var(--danger);
 }
 
+/* 左端のモードの色の帯（6px）。外側は濃く、内側へカードの色にぼかす。
+   左の枠線は透明にして、その下に背景のグラデーションを敷いている（background-origin: border-box） */
 .history-row {
+  --row-mode: var(--line);
   display: grid;
   grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr) auto;
   align-items: baseline;
   gap: 4px 16px;
   padding: 12px 14px;
-  background: var(--card);
+  background-color: var(--card);
+  background-image: linear-gradient(90deg, var(--row-mode) 0, var(--row-mode) 3px, transparent 6px);
+  background-origin: border-box;
+  background-repeat: no-repeat;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--line);
+  border-left: 6px solid transparent;
   border-radius: 12px;
   color: var(--ink);
   text-decoration: none;
   transition: border-color 0.12s, transform 0.12s;
 }
 
+/* 左の帯は残して、ほかの3辺だけ濃く */
 .history-row:hover,
 .history-row:focus-visible {
-  border-color: var(--ink);
+  border-top-color: var(--ink);
+  border-right-color: var(--ink);
+  border-bottom-color: var(--ink);
   transform: translateY(-1px);
 }
 
-.history-row[data-mode="dict"] { border-left-color: var(--dict); }
-.history-row[data-mode="kanji"] { border-left-color: var(--kanji); }
-.history-row[data-mode="sentence"] { border-left-color: var(--sentence); }
-.history-row[data-mode="thes"] { border-left-color: var(--thes); }
-.history-row[data-mode="cmp"] { border-left-color: var(--cmp); }
-.history-row[data-mode="jiten"] { border-left-color: var(--jiten); }
-.history-row[data-mode="furi"] { border-left-color: var(--furi); }
+.history-row[data-mode="dict"] { --row-mode: var(--dict); }
+.history-row[data-mode="kanji"] { --row-mode: var(--kanji); }
+.history-row[data-mode="sentence"] { --row-mode: var(--sentence); }
+.history-row[data-mode="thes"] { --row-mode: var(--thes); }
+.history-row[data-mode="cmp"] { --row-mode: var(--cmp); }
+.history-row[data-mode="jiten"] { --row-mode: var(--jiten); }
+.history-row[data-mode="furi"] { --row-mode: var(--furi); }
 
 /* ふりがなモードの文は長いので2行まで（全文は title） */
 .history-word {
@@ -193,6 +285,26 @@ button.history-delete:focus-visible {
 @media (max-width: 720px) {
   body.history-body {
     padding: 16px 16px 40px;
+  }
+
+  /* 電話の幅でも1行に収める（すべて + 7つ） */
+  .history-filter {
+    gap: 5px;
+  }
+
+  button.history-filter-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .history-filter-btn .mode-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  button.history-filter-all {
+    height: 34px;
+    padding: 0 10px;
   }
 
   .history-row {

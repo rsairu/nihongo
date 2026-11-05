@@ -87,9 +87,11 @@
 
   const remote = {
     kind: "remote",
-    history({ offset = 0, limit = 50, summary = false } = {}) {
+    // mode を渡すと、そのモードで調べたことのある語だけ（履歴ページの絞り込み）
+    history({ offset = 0, limit = 50, summary = false, mode } = {}) {
       const q = new URLSearchParams({ action: "history", offset: String(offset), limit: String(limit) });
       if (summary) q.set("summary", "1");
+      if (mode) q.set("mode", mode);
       return call("GET", ENDPOINT + "?" + q.toString());
     },
     async entries(keys) {
@@ -154,8 +156,9 @@
 
   const local = {
     kind: "local",
-    async history({ offset = 0, limit = 50, summary = false } = {}) {
-      const all = readJson(HIST_KEY, []);
+    async history({ offset = 0, limit = 50, summary = false, mode } = {}) {
+      let all = readJson(HIST_KEY, []);
+      if (mode) all = all.filter((h) => Array.isArray(h.modes) && h.modes.includes(mode));
       const items = all.slice(offset, offset + limit).map((h) => ({ ...h }));
       if (summary) {
         const map = readJson(ENT_KEY, {});

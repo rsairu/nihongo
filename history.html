@@ -19,6 +19,17 @@
   </header>
 
   <main class="history-page">
+    <!-- 調べ方で絞り込む。並びはリトリーブのモードの列と同じ。もう一度押すか「すべて」で解除 -->
+    <div id="historyFilter" class="history-filter" role="group" aria-label="調べ方で絞り込む">
+      <button class="history-filter-all active" type="button" aria-pressed="true" data-mode="">すべて</button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="辞書" aria-label="辞書" data-mode="dict"><img class="mode-icon" src="icons_png/web/lookup.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="例文" aria-label="例文" data-mode="sentence"><img class="mode-icon" src="icons_png/web/sentence.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="漢字辞典" aria-label="漢字辞典" data-mode="jiten"><img class="mode-icon" src="icons_png/web/jiten.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="類義語" aria-label="類義語" data-mode="thes"><img class="mode-icon" src="icons_png/web/thesaurus.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="使い分け" aria-label="使い分け" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="漢字表記" aria-label="漢字表記" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /></button>
+      <button class="history-filter-btn" type="button" aria-pressed="false" title="ふりがな" aria-label="ふりがな" data-mode="furi"><img class="mode-icon" src="icons_png/web/furigana.png" alt="" width="48" height="48" /></button>
+    </div>
     <p id="historyNote" class="history-note" hidden>このブラウザに保存された履歴です（ローカルで開いているため）。</p>
     <ol id="historyList" class="history-list" aria-label="調べた語（新しい順）"></ol>
     <div class="history-foot">

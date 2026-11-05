@@ -5,9 +5,10 @@
 //   ACCESS_CODE                same passcode as api/claude.js
 // Tables and the record_lookup / delete_lookup functions: db/schema.sql.
 //
-// GET  ?action=history&offset=0&limit=50[&summary=1]
+// GET  ?action=history&offset=0&limit=50[&summary=1][&mode=dict]
 //        → { items: [{query, context, modes, lookup_count, first_looked_at, last_looked_at, dict?}], total }
 //        summary=1 adds dict: {reading, ja, suggestion} from the saved 辞書 answer (standard level first).
+//        mode=… keeps only words whose modes include it (history page filter); total counts the filtered rows.
 // POST { action: "entries", keys: [...] }
 //        → { entries: [{query, mode, level, entry}] }   every saved answer whose cache key is in keys
 // POST { action: "lookup", query, mode, context?, bump? }
@@ -89,9 +90,12 @@ function inList(values) {
 async function history(params) {
   const offset = Math.max(0, parseInt(params.offset, 10) || 0);
   const limit = Math.min(MAX_PAGE, Math.max(1, parseInt(params.limit, 10) || 50));
+  // modes は text[]。cs.{dict} = 「dict を含む」
+  const modeFilter = MODES.has(params.mode) ? "&modes=" + encodeURIComponent("cs.{" + params.mode + "}") : "";
   const res = await expectOk(
     await supabase(
       "lookup_history?select=query,context,modes,lookup_count,first_looked_at,last_looked_at" +
+        modeFilter +
         "&order=last_looked_at.desc,id.desc&offset=" + offset + "&limit=" + limit,
       { headers: { prefer: "count=exact" } }
     )
