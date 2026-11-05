@@ -252,6 +252,25 @@ body.lookup-body {
   font-size: 1.1rem;
 }
 
+.lookup-page #helperSpelling {
+  font-size: 1.8rem;
+}
+
+.lookup-page #helperHomophones {
+  margin-top: 10px;
+  gap: 6px 10px;
+  font-size: 0.95rem;
+}
+
+.lookup-page .homophones-list {
+  gap: 6px;
+}
+
+.lookup-page button.homophone-btn {
+  padding: 2px 12px;
+  font-size: 1.1rem;
+}
+
 .lookup-page #helperDef {
   margin-top: 12px;
   font-size: 1.15rem;

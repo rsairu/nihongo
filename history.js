@@ -91,7 +91,9 @@
     const reading = (item.dict && item.dict.reading) || (item.context && item.context.reading) || "";
     const meaning = (item.dict && item.dict.ja) || (item.context && item.context.meaning) || "";
     const suggestion = (item.dict && item.dict.suggestion) || "";
-    if (reading) body.append(el("span", "history-reading", reading));
+    // かなで引いた語は 読み【表記】（辞書の 表記:）
+    const spelling = (item.dict && item.dict.spelling) || "";
+    if (reading) body.append(el("span", "history-reading", spelling ? reading + "【" + spelling + "】" : reading));
     if (meaning) body.append(el("span", "history-meaning", meaning));
     else if (suggestion) body.append(el("span", "history-meaning history-suggestion", "もしかして：" + suggestion));
 

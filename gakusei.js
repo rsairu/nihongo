@@ -24,7 +24,7 @@
     "",
     "Never simplify or replace these; they are data, not explanation:",
     "- the word being asked about, its reading, and its kanji spelling (write the real spelling even if it is hard);",
-    "- synonym/antonym headwords (must be real words; only their short meanings become simpler);",
+    "- synonym/antonym headwords and words listed as having the same reading (must be real words in their real spelling; only their short meanings become simpler);",
     "- in a kanji dictionary entry: the kanji, its on/kun readings, and the listed words containing it (real, common words; only their short meanings become simpler);",
     "- in example sentences, the target word itself, written exactly as given;",
     "- numbers, scores, and fixed category values such as kana / either / kanji.",

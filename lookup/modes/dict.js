@@ -7,6 +7,8 @@ const helperEn = document.getElementById("helperEn");
 const helperEnBtn = document.getElementById("helperEnBtn");
 const helperGloss = document.getElementById("helperGloss");
 const helperGlossBtn = document.getElementById("helperGlossBtn");
+const helperSpelling = document.getElementById("helperSpelling");
+const helperHomophones = document.getElementById("helperHomophones");
 
 /** @type {AbortController | null} */
 let helperEnAbort = null;
@@ -52,11 +54,15 @@ function parseDictResponse(raw, query) {
   }
   let en = enMatch ? enMatch[1].trim() : "";
   if (!reading || !ja) {
-    // 候補: なし と 訳: の行は位置で読むときに数えない（読み・JA がずれないように）
+    // 候補: なし・表記:・同音:・訳: の行は位置で読むときに数えない（読み・JA がずれないように）
     const lines = text
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l && !SUGGESTION_LINE_RE.test(l) && !GLOSS_LINE_RE.test(l));
+      .filter(
+        (l) =>
+          l && !SUGGESTION_LINE_RE.test(l) && !GLOSS_LINE_RE.test(l) &&
+          !SPELLING_LINE_RE.test(l) && !HOMOPHONE_LINE_RE.test(l)
+      );
     if (!reading && lines[0]) {
       reading = lines[0]
         .replace(/^(?:読み(?:方)?|よみ|reading)\s*[:：]\s*/i, "")
@@ -73,7 +79,54 @@ function parseDictResponse(raw, query) {
   ja = stripWrappingQuotes(ja);
   en = stripWrappingQuotes(en);
   const gloss = glossMatch ? cleanGloss(glossMatch[1]) : "";
-  return gloss ? { reading, ja, en, gloss } : { reading, ja, en };
+  const entry = gloss ? { reading, ja, en, gloss } : { reading, ja, en };
+  // 表記・同音語は、かなだけで引いたときだけ（漢字があれば、もうその語に決まっている）
+  if (!hasKanji(query)) {
+    const spellingMatch = text.match(SPELLING_LINE_RE);
+    const spelling = spellingMatch ? cleanSpelling(spellingMatch[1], query) : "";
+    const homophoneMatch = text.match(HOMOPHONE_LINE_RE);
+    const homophones = homophoneMatch ? cleanHomophones(homophoneMatch[1], query, spelling) : [];
+    if (spelling) entry.spelling = spelling;
+    if (homophones.length) entry.homophones = homophones;
+  }
+  return entry;
+}
+
+// 表記（定義した語の漢字）と 同音（同じ読みのほかの語）。prompts.js の buildFreeLookupPrompt。
+const SPELLING_LINE_RE = /^\s*(?:表記|spelling)\s*[:：]\s*(.*)$/im;
+
+const HOMOPHONE_LINE_RE = /^\s*(?:同音語?|homophones?)\s*[:：]\s*(.*)$/im;
+const HOMOPHONE_MAX = 4;
+
+function hasKanji(text) {
+  return Array.from(String(text || "")).some(isKanjiChar);
+}
+
+// 「橋（はし）」「【橋】」のような飾りを外す。漢字のない答え・Q と同じ答えは出さない。
+function cleanSpellingWord(raw) {
+  const s = stripWrappingQuotes(String(raw || "").split(/[（(]/)[0].replace(/[【】\[\]]/g, "").trim());
+  return s.replace(/[。．.]+$/, "").trim();
+}
+
+function cleanSpelling(raw, query) {
+  const s = cleanSpellingWord(raw);
+  if (!s || isNoneList(s) || !hasKanji(s) || s === String(query).trim()) return "";
+  return s;
+}
+
+function cleanHomophones(raw, query, spelling) {
+  const s = String(raw || "").trim();
+  if (!s || isNoneList(s)) return [];
+  const seen = new Set([String(query).trim(), spelling]);
+  const out = [];
+  for (const part of s.split(/[、,，;；/／・]+/)) {
+    const w = cleanSpellingWord(part);
+    if (!w || isNoneList(w) || !hasKanji(w) || seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+    if (out.length >= HOMOPHONE_MAX) break;
+  }
+  return out;
 }
 
 // 訳語（prompts.js の 訳: 行 / buildGlossPrompt）。定義の英訳（en）とは別の、語そのものの英語。
@@ -142,9 +195,43 @@ function clearHelperGloss() {
   helperGlossBtn.textContent = "訳語を表示";
 }
 
+// 読み【表記】: かなで引いたとき、定義した語の漢字を読みの後ろに（国語辞典の見出しの形）。
+// 同音語: 同じ読みのほかの語。押すとその漢字の表記を辞書で引く（helperLookup を通すので待てモードも効く）。
+function renderDictHeadword(entry) {
+  const spelling = (entry && entry.spelling) || "";
+  helperSpelling.textContent = spelling ? "【" + spelling + "】" : "";
+  helperSpelling.title = spelling ? "かなで引いた語の漢字表記" : "";
+  const homophones = (entry && Array.isArray(entry.homophones) && entry.homophones) || [];
+  if (!homophones.length) {
+    helperHomophones.replaceChildren();
+    helperHomophones.classList.remove("visible");
+    return;
+  }
+  const label = document.createElement("span");
+  label.className = "homophones-label";
+  label.textContent = "同音語";
+  const list = document.createElement("span");
+  list.className = "homophones-list";
+  for (const word of homophones) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "homophone-btn";
+    btn.textContent = word;
+    btn.title = "「" + word + "」を辞書で調べる";
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      helperLookup(word, { mode: "dict" });
+    });
+    list.append(btn);
+  }
+  helperHomophones.replaceChildren(label, list);
+  helperHomophones.classList.add("visible");
+}
+
 function renderDictPending(text) {
   helperEntry = null;
   helperResult.classList.remove("error");
+  renderDictHeadword(null);
   helperKana.textContent = text;
   helperDef.textContent = text;
   helperEn.textContent = "";
@@ -158,6 +245,7 @@ function renderDictPending(text) {
 function renderDictError(message) {
   helperEntry = null;
   helperResult.classList.add("error");
+  renderDictHeadword(null);
   helperKana.textContent = message;
   helperDef.textContent = "";
   helperEn.textContent = "";
@@ -233,6 +321,7 @@ function renderDictEntry(entry, enShown, glossShown) {
   if (isSuggestionEntry(entry)) {
     helperEntry = null; // 英訳・訳語の対象にしない
     helperResult.classList.remove("error");
+    renderDictHeadword(null);
     helperKana.textContent = "";
     renderSuggestion(helperDef, entry.suggestion, "dict");
     helperEn.textContent = "";
@@ -244,6 +333,7 @@ function renderDictEntry(entry, enShown, glossShown) {
   helperEntry = entry;
   helperResult.classList.remove("error");
   helperKana.textContent = entry.reading || "…";
+  renderDictHeadword(entry);
   renderSenseLines(helperDef, entry.ja);
   renderSenseLines(helperEn, entry.en);
   const answered = Boolean(entry.reading && entry.ja);
@@ -279,7 +369,8 @@ async function ensureHelperEnglish() {
   helperEn.classList.add("visible");
 
   try {
-    const en = await fetchEnOnly(query, sourceEntry.reading, sourceEntry.ja, controller.signal);
+    // かなで引いた語は、定義した語の漢字（表記）で渡す（同音の別の語と取りちがえないように）
+    const en = await fetchEnOnly(sourceEntry.spelling || query, sourceEntry.reading, sourceEntry.ja, controller.signal);
     if (requestId !== helperEnRequestId) return "";
     const next = { ...latestDictEntry(query, sourceEntry), en };
     dictCache[dictCacheKey(query, "")] = next;
@@ -336,7 +427,7 @@ async function ensureHelperGloss() {
   helperGloss.classList.add("visible");
 
   try {
-    const gloss = await fetchGlossOnly(query, sourceEntry.reading, sourceEntry.ja, controller.signal);
+    const gloss = await fetchGlossOnly(sourceEntry.spelling || query, sourceEntry.reading, sourceEntry.ja, controller.signal);
     if (requestId !== helperGlossRequestId) return "";
     const next = { ...latestDictEntry(query, sourceEntry), gloss };
     dictCache[dictCacheKey(query, "")] = next;

@@ -7,7 +7,7 @@
 //
 // GET  ?action=history&offset=0&limit=50[&summary=1][&mode=dict]
 //        → { items: [{query, context, modes, lookup_count, first_looked_at, last_looked_at, dict?}], total }
-//        summary=1 adds dict: {reading, ja, suggestion} from the saved 辞書 answer (standard level first).
+//        summary=1 adds dict: {reading, spelling, ja, suggestion} from the saved 辞書 answer (standard level first).
 //        mode=… keeps only words whose modes include it (history page filter); total counts the filtered rows.
 // POST { action: "entries", keys: [...] }
 //        → { entries: [{query, mode, level, entry}] }   every saved answer whose cache key is in keys
@@ -117,7 +117,7 @@ async function history(params) {
     }
     for (const item of items) {
       const e = byQuery[item.query];
-      if (e) item.dict = { reading: e.reading || "", ja: e.ja || "", suggestion: e.suggestion || "" };
+      if (e) item.dict = { reading: e.reading || "", spelling: e.spelling || "", ja: e.ja || "", suggestion: e.suggestion || "" };
     }
   }
   return { items, total: Number.isFinite(total) ? total : items.length };

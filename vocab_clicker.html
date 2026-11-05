@@ -84,9 +84,13 @@
         <div id="helperWord"></div>
         <div id="helperDictBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeDict">
           <div class="helper-reading-row">
-            <div id="helperKana" title="クリックでコピー"></div>
+            <div class="helper-headword">
+              <div id="helperKana" title="クリックでコピー"></div>
+              <div id="helperSpelling"></div>
+            </div>
             <div id="helperGloss" lang="en"></div>
           </div>
+          <div id="helperHomophones"></div>
           <div id="helperDef"></div>
           <div id="helperEn"></div>
           <div class="helper-dict-actions">
@@ -182,6 +186,7 @@
       <span><kbd>選択</kbd>調べる</span>
       <span><kbd>ドラッグ</kbd>辞書・漢字表記・例文・類義語・使い分けへ</span>
       <span><kbd>訳語 / 英訳</kbd>辞書で、訳語は語そのものの英語（読みの下）、英訳は定義の英語（定義の下）</span>
+      <span><kbd>表記 / 同音語</kbd>辞書で、かなで引いた語は読みの後ろに漢字の表記【橋】。同じ読みのほかの語（箸・端 など）は読みの下にボタンで出て、押すとその語を辞書で調べる</span>
       <span><kbd>もしかして</kbd>辞書・漢字表記で、打ちまちがいや変換ミス（賞も無い など）のときは、正しそうな語だけを出します。押すとその語を同じタブで調べる</span>
       <span><kbd>ふりがな</kbd>語・フレーズ・動詞・文の読みだけ（意味は出しません）。入力欄が2行になり、長い文も折り返します。漢字の上にふりがな、下に全体の読み（クリックでコピー）</span>
       <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>

@@ -1576,6 +1576,60 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 
 #helperGloss.visible { display: block; }
 
+/* 見出し: 読み【表記】（かなで引いたとき、定義した語の漢字を読みの後ろに）。 */
+.helper-headword {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.15em;
+}
+
+#helperSpelling {
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+#helperSpelling:empty { display: none; }
+
+/* 同音語: 同じ読みのほかの語。押すとその表記で辞書を引く。 */
+#helperHomophones {
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+#helperHomophones.visible { display: flex; }
+
+.homophones-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+button.homophone-btn {
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+button.homophone-btn:hover,
+button.homophone-btn:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 #helperDef {
   margin-top: 8px;
   color: var(--ink);

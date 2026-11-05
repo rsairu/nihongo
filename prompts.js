@@ -40,26 +40,35 @@ function buildSuggestionRules() {
 }
 
 // ── 辞書 ──────────────────────────────
-// 解析: parseDictResponse / 候補:, 読み:, JA:, 訳:
+// 解析: parseDictResponse / 候補:, 読み:, 表記:, 同音:（、区切り）, JA:, 訳:
 // 辞書: Sonnet で定義（JA）を作る。英訳は「英訳を表示」で fetchEnOnly（Haiku）が JA から訳す。
 // 2026-10-08: Haiku + 短い定義の指示で「口が減らない＝おしゃべり」のような字面どおりの誤訳が出たため変更。
 // 2026-10-25: 訳:（語そのものの英語の訳語。定義の訳ではない）を同じ返事に足した。出力が10〜20トークン増えるだけで、別リクエストはいらない。
 // 「訳語を表示」で読みの横に出す。訳 のない保存済みの答えだけ buildGlossPrompt（Haiku）で後から取る。
+// 2026-11-05: かなだけで引いたとき、①②③ に同音の別の語（はし: 橋・箸・端）が混ざるか、どれか1語を黙って選んでいたので、
+// 表記:（定義した語の漢字。とても珍しい漢字なら なし）と 同音:（同じ読みのほかの語。最大4語）を足した。
+// 定義は いちばんよく指す1語だけ。アプリは 読み【表記】 と、同音語のボタン（押すとその漢字で辞書を引く）を出す。
+// Q に漢字があるときは どちらも なし（パーサーも捨てる）。
 function buildFreeLookupPrompt(query) {
   return [
     "Define this Japanese word or phrase the way a careful monolingual dictionary (大辞林・明鏡国語辞典) would.",
     ...buildSuggestionRules(),
+    "- If Q is written without kanji and several common words share its reading (はし: 橋・箸・端), define only the one Q most often means on its own. Put the others in 同音, never in the numbered senses.",
     "- Idiom (慣用句), proverb or set phrase: give its established idiomatic meaning. Never build the meaning from the literal parts.",
     "- Convey any connotation or register the word carries (disapproving, ironic, humble, praising, colloquial, literary, etc.).",
-    "- If it has more than one distinct sense in common use, number them ①②③, most standard first.",
+    "- If the word you define has more than one distinct sense in common use, number them ①②③, most standard first.",
     "- Give the standard meaning first. If a newer or alternate usage is now widespread, add it after, marked 〔新〕. If dictionaries treat that usage as a mistake, say so (誤用とされる).",
     "- If you are not sure of a meaning, say so briefly instead of guessing.",
-    "- 訳 is the closest English equivalent of Q itself, the way a 和英 dictionary gives it: a word or short phrase, not a definition or explanation. For an idiom, give the natural English equivalent expression, never a literal rendering. If the senses need different English words, give up to 3 separated by \"; \", in the same order as the senses.",
-    "Output these 4 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
+    "- 訳 is the closest English equivalent of the word you defined, the way a 和英 dictionary gives it: a word or short phrase, not a definition or explanation. For an idiom, give the natural English equivalent expression, never a literal rendering. If the senses need different English words, give up to 3 separated by \"; \", in the same order as the senses.",
+    "- 表記: only when Q has no kanji. The standard kanji spelling of the word you defined (くちがへらない → 口が減らない, きれい → 綺麗), even if the word is usually written in kana. Write なし if Q contains kanji, if the word has no kanji spelling, or if its kanji spelling is very rare or archaic (とても → なし, not 迚も).",
+    "- 同音: only when Q has no kanji. Other common words with exactly the same reading, each in its usual kanji spelling, most common first, at most 4, separated by 、. The same verb written with different kanji for different meanings counts (あう: 会う → 合う、遭う). Leave out alternate spellings of the word you defined, rare words and proper nouns. なし if there are none.",
+    "Output these 6 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
     "候補: <most likely intended word, or なし>",
     "読み: <hiragana; katakana if that is normal>",
+    "表記: <kanji spelling of the word you defined, or なし>",
+    "同音: <other words with the same reading, or なし>",
     "JA: <Japanese definition, all on ONE line>",
-    "訳: <closest English equivalent of Q>",
+    "訳: <closest English equivalent of the word you defined>",
     "",
     "Q: " + query
   ].join("\n");
