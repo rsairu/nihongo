@@ -6,8 +6,8 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 
 | File | What it is |
 | --- | --- |
-| `lookup.html` + `lookup.css` | **リトリーブ — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). The name (formerly 調べる) is a play on "retrieve": Pila the dog fetching a word's meaning. Her icon (`icons_png/web/pila.png`) sits left of the title. |
-| `vocab_clicker.html` + `vocab_clicker.css` | 語彙クリッカー — vocab parser and bubbles, with a compact copy of the lookup panel on the side. |
+| `lookup.html` + `lookup.js` + `lookup.css` | **リトリーブ — the canonical lookup page.** Served at `/` on Vercel (see `vercel.json`). The name (formerly 調べる) is a play on "retrieve": Pila the dog fetching a word's meaning. Her icon (`icons_png/web/pila.png`) sits left of the title. |
+| `vocab_clicker.html` + `vocab_clicker.js` + `vocab_clicker.css` | 語彙クリッカー — vocab parser and bubbles, with a compact copy of the lookup panel on the side. |
 | `ondoku.html` / `ondoku.js` / `ondoku.css` | 音読タイマー — separate page; doesn't share the lookup code. |
 | `history.html` + `history.js` + `history.css` | 履歴 — every word ever looked up, 50 per page. Linked from the end of the history tabs. Loads only `store.js`, not the lookup code. A filter row at the top (`#historyFilter`: すべて + the mode icons in the same order as lookup.html's `#helperModes`) shows only words looked up in one mode; clicking the active icon again clears it. The filter runs server-side (`LookupStore.history({ mode })` → `modes=cs.{…}` in `api/store.js`), so the count and paging stay right, and it's kept in `?mode=` so it survives going to a word and back. While filtered, rows open in that mode. Each row's left edge is a 6px mode-colored band that fades into the card (a background gradient under a transparent left border). |
 
@@ -34,15 +34,23 @@ but it's smaller, and it sits next to the vocab bubbles.
 
 ## Shared code: why drift breaks things
 
-Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js` and `vocab_clicker.js` (in that order), and the same base `vocab_clicker.css`.
-`lookup.css` is layered on top for the full-page look (rules scoped to `.lookup-page` / `.lookup-body`).
+Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js` and `lookup.js` (in that order), and the same base `vocab_clicker.css`.
+`vocab_clicker.html` then loads `vocab_clicker.js` last. `lookup.css` is layered on top for the full-page look (rules scoped to `.lookup-page` / `.lookup-body`).
 
-- `vocab_clicker.js` looks up elements by ID at load time. If an ID exists in one page's markup but not the
+| Script | Loaded by | What's in it |
+| --- | --- | --- |
+| `lookup.js` | both pages | The whole lookup panel: modes, fetching, parsing, rendering, history tabs, saving, handwriting, ⚙ settings, drop targets, highlight-to-look-up inside 例文. |
+| `vocab_clicker.js` | `vocab_clicker.html` only | Vocab-list parsing, bubbles, selection and CSV, `known_words.json`, dragging a bubble out, highlight-to-look-up inside bubbles. |
+
+These are plain `<script>` tags, so their top-level `const` / `let` / functions are shared. `vocab_clicker.js` uses what `lookup.js` defines
+(`helperLookup`, `helperLookupFromHighlight`, `pulseLookupBox`, `renderLookupText`, `looksJapanese`, `endWordDrag`, `VOCAB_DRAG_TYPE`), never the other way round.
+
+- `lookup.js` looks up elements by ID at load time. If an ID exists in one page's markup but not the
   other's, the script throws partway through on the page that's missing it, and every feature wired after that point stops working.
-  **Any element the lookup JS uses must exist in both `lookup.html` and `vocab_clicker.html`.**
+  **Any element `lookup.js` uses must exist in both `lookup.html` and `vocab_clicker.html`.**
+- Clicker-only code (bubbles, parsing, known words, footer) goes in `vocab_clicker.js`, not `lookup.js`. `lookup.js` must not mention clicker elements or state.
+  The `vocab-clicker-*` localStorage keys keep their old names in both files so saved settings carry over.
 - Put base and compact styles in `vocab_clicker.css`. Put full-page overrides in `lookup.css`, scoped under `.lookup-page`.
-- Clicker-only code (bubbles, parsing, known words, footer) must guard against its elements being absent,
-  because lookup.html doesn't have them.
 
 ## Checklist for lookup changes
 
@@ -57,13 +65,13 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
 ## Prompts
 
 - Every prompt the lookup panel sends lives in `prompts.js`, together with `PROMPT_SETTINGS` (model, max_tokens, temperature per mode).
-  `vocab_clicker.js` sends them through `requestPrompt(kind, prompt, signal)` and parses the replies.
-- Each prompt asks for labeled lines (`読み:`, `類義:`, `例A:` …) and the matching `parse…Response` in `vocab_clicker.js` reads those labels.
+  `lookup.js` sends them through `requestPrompt(kind, prompt, signal)` and parses the replies.
+- Each prompt asks for labeled lines (`読み:`, `類義:`, `例A:` …) and the matching `parse…Response` in `lookup.js` reads those labels.
   The comment above each prompt names its parser and labels. Reword freely; change a label only together with its parser.
 - もしかして: 辞書 and 漢字表記 both start with `候補:` (`buildSuggestionRules`, read by `parseSuggestion`). It's filled only when Q isn't an established word or spelling (typo, wrong kanji, bad conversion like 賞も無い). Then the answer is just `{ suggestion }`: the parsers drop any other lines, and `renderDictEntry` / `renderKanjiEntry` show 「見つかりませんでした。もしかして：〇〇」, where 〇〇 is a button that calls `helperLookup` in the same mode. That `{ suggestion }` is what gets cached and saved for the bad query, never a guessed definition or spelling. A lookup that ends in a suggestion cancels the 待てモード cooldown it started (`releaseReadingCooldown`), so tapping the suggestion isn't blocked.
 - 辞書 has two English buttons under the definition. 訳語を表示 (`#helperGlossBtn`) shows `#helperGloss`, the English equivalent of the word itself (`entry.gloss`), on its own line under the reading in `.helper-reading-row`, in the reading's color and smaller (the button's text is that color too). 英訳を表示 (`#helperEnBtn`) shows `#helperEn`, the translation of the definition (`entry.en`).
   The gloss comes back with the 辞書 answer itself as the `訳:` line (parsed by `GLOSS_LINE_RE`), so there's no second request. Saved answers from before that line existed have no gloss: the first click fetches one with `buildGlossPrompt` (Haiku, `ensureHelperGloss`) and saves it like 英訳 does. `#helperGloss` stays outside `#helperKana`, so click-to-copy copies only the reading.
-- New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`, not to `vocab_clicker.js`.
+- New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`, not to `lookup.js`.
   Then add the mode to `HELPER_MODES` and the label maps, `createCacheBank`, `createHelperItem` / `modeState`,
   `cachedModeEntry` / `cacheModeEntry`, `paintHelperItem`, `runHelperFetch`, the bank swap in `setGakuseiMode`,
   the per-mode colors in `vocab_clicker.css` and `history.css`, `MODES` in `history.js` and `api/store.js`,
@@ -87,7 +95,7 @@ Both pages load the **same** `config.js`, `gakusei.js`, `prompts.js`, `store.js`
 
 - Every answer and every looked-up word is saved. On load, the last 10 words come back as history tabs and their answers fill the caches, so reopening a saved word costs no API call.
 - `store.js` exposes `window.LookupStore`. Hosted, it calls `api/store.js` (Supabase, gated by the same `ACCESS_CODE`). On localhost / file:// it uses this browser's localStorage instead.
-- `vocab_clicker.js` saves from one place: `cacheModeEntry` → `persistModeEntry` (plus the 英訳 and 訳語 updates in `ensureHelperEnglish` / `ensureHelperGloss`). A new fetch path must go through `cacheModeEntry` or it won't be saved.
+- `lookup.js` saves from one place: `cacheModeEntry` → `persistModeEntry` (plus the 英訳 and 訳語 updates in `ensureHelperEnglish` / `ensureHelperGloss`). A new fetch path must go through `cacheModeEntry` or it won't be saved.
 - Saved keys match the in-memory cache keys: the word, `cmpCacheKey(query)` for 使い分け, one row per character for 漢字辞典. 小6モード answers are stored with `level = 'gakusei'`.
 - On load, `storeKeysFor(query, modes)` adds the 使い分け key only for words that were looked up in 使い分け (ふりがな sentences are long).
   `api/store.js` splits the `in.(…)` list into several requests so the URL stays short (`MAX_IN_LIST_CHARS`), and accepts queries up to 400 chars.
