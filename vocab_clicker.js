@@ -1,5 +1,5 @@
 // 語彙クリッカー（vocab_clicker.html）だけのコード: 単語リストの解析・バブル・選択とCSV・既知リスト (known_words.json)。
-// 調べるパネルは lookup.js（このファイルより先に読み込む）。ここからは helperLookup / helperLookupFromHighlight /
+// 調べるパネルは lookup/ の各ファイル（このファイルより先に読み込む）。ここからは helperLookup / helperLookupFromHighlight /
 // pulseLookupBox / renderLookupText / looksJapanese / endWordDrag / VOCAB_DRAG_TYPE を使う。
 
 const KNOWN_STORAGE_KEY = "vocab-clicker-known";
@@ -398,7 +398,7 @@ function bubbleContext(item) {
   return { word: item.word, reading: item.reading, meaning: item.meaning };
 }
 
-// バブルの中を選択したら、その語を調べる。見出し語そのものなら読みと意味も渡す（例文の中の選択は lookup.js）。
+// バブルの中を選択したら、その語を調べる。見出し語そのものなら読みと意味も渡す（例文の中の選択は lookup/modes/sentence.js）。
 document.addEventListener("mouseup", () => {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) return;

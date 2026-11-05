@@ -1,16 +1,16 @@
 // prompts.js — リトリーブのパネルが Claude に送るプロンプトをすべてここに集める。
-// lookup.html と vocab_clicker.html の両方で、vocab_clicker.js より前に読み込む（普通の <script>。ここの名前はそのまま共有される）。
+// lookup.html と vocab_clicker.html の両方で、lookup/ の各ファイルより前に読み込む（普通の <script>。ここの名前はそのまま共有される）。
 //
 // 文言は自由に変えてよい。ただし各プロンプトは「ラベル: 内容」の行で返させていて、
-// vocab_clicker.js のパーサーがそのラベルで読む。ラベル名と行の形（｜ や ; の区切り）は変えないこと。
+// lookup/modes/*.js のパーサーがそのラベルで読む。ラベル名と行の形（｜ や ; の区切り）は変えないこと。
 // 各プロンプトの上に「解析: 関数名 / ラベル」を書いてある。
-// JITEN_MAX_WORDS と CMP_LETTERS は vocab_clicker.js 側の定数（パーサーと共有）。
+// JITEN_MAX_WORDS と CMP_LETTERS は lookup/modes/jiten.js・cmp.js 側の定数（パーサーと共有）。
 
 const CLAUDE_MODEL = "claude-haiku-4-5";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5";
 
 // モード別の設定。temperature を省くと 0。max_tokens は Vercel のプロキシ側で 1024 が上限（api/claude.js）。
-// noGakusei: true のモードは小6モードのハーネスをかけない（vocab_clicker.js の requestPrompt / persistModeEntry）。
+// noGakusei: true のモードは小6モードのハーネスをかけない（lookup/api.js の requestPrompt / lookup/saved.js の persistModeEntry）。
 const PROMPT_SETTINGS = {
   dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 400,  temperature: 0 },   // 辞書（定義）
   en:       { model: CLAUDE_MODEL,        maxTokens: 200,  temperature: 0 },   // 辞書（英訳を表示）

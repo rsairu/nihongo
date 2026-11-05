@@ -7,7 +7,7 @@
   <link rel="icon" href="favicon.ico" sizes="any" />
   <link rel="stylesheet" href="vocab_clicker.css" />
   <link rel="stylesheet" href="lookup.css" />
-  <!-- ⚙ アイコンだけ表示: 文字が一瞬見えてから消えないよう、描画前にクラスを付ける（本体は vocab_clicker.js） -->
+  <!-- ⚙ アイコンだけ表示: 文字が一瞬見えてから消えないよう、描画前にクラスを付ける（本体は lookup/settings.js） -->
   <script>try { if (localStorage.getItem("vocab-clicker-mode-labels-hidden") === "1") document.documentElement.classList.add("mode-labels-hidden"); } catch (_) {}</script>
 </head>
 <body class="lookup-body">
@@ -179,6 +179,20 @@
   <script src="gakusei.js"></script>
   <script src="prompts.js"></script>
   <script src="store.js"></script>
-  <script src="lookup.js"></script>
+  <!-- 調べるパネル（lookup/）。この順で読み込む: 共通 → API → 中心 → 保存 → 各モード → 手書き → 設定 → 開始 -->
+  <script src="lookup/common.js"></script>
+  <script src="lookup/api.js"></script>
+  <script src="lookup/core.js"></script>
+  <script src="lookup/saved.js"></script>
+  <script src="lookup/modes/dict.js"></script>
+  <script src="lookup/modes/kanji.js"></script>
+  <script src="lookup/modes/sentence.js"></script>
+  <script src="lookup/modes/thes.js"></script>
+  <script src="lookup/modes/cmp.js"></script>
+  <script src="lookup/modes/jiten.js"></script>
+  <script src="lookup/modes/furi.js"></script>
+  <script src="lookup/handwriting.js"></script>
+  <script src="lookup/settings.js"></script>
+  <script src="lookup/start.js"></script>
 </body>
 </html>

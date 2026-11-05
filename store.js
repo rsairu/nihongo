@@ -1,11 +1,11 @@
-// リトリーブの保存先。lookup.html / vocab_clicker.html / history.html が読み込む（vocab_clicker.js より先）。
+// リトリーブの保存先。lookup.html / vocab_clicker.html / history.html が読み込む（lookup/ より先）。
 // Hosted (Vercel): /api/store → Supabase（端末をまたいで残る）。アクセスコードは api/claude.js と共通。
 // Local (localhost / file://): このブラウザの localStorage に保存（その端末だけ）。
 // 書き込みはすべて投げっぱなし。失敗しても調べる機能は止めない。
 (function () {
   "use strict";
 
-  const ACCESS_CODE_STORAGE_KEY = "vocab_clicker_access_code"; // vocab_clicker.js と同じキー
+  const ACCESS_CODE_STORAGE_KEY = "vocab_clicker_access_code"; // lookup/api.js と同じキー
   const ENDPOINT = "/api/store";
   const SAVE_FLUSH_MS = 300;
   const SAVE_BATCH = 20;
@@ -17,7 +17,7 @@
     return gakusei ? "gakusei" : "standard";
   }
 
-  // 使い分けの答えの保存キー。vocab_clicker.js の cmpCacheKey と同じ（history.html は vocab_clicker.js を読まないのでここにも置く）。
+  // 使い分けの答えの保存キー。lookup/modes/cmp.js の cmpCacheKey と同じ（history.html は lookup/ を読まないのでここにも置く）。
   const CMP_MAX_WORDS = 3;
   function cmpKeyOf(query) {
     const out = [];
