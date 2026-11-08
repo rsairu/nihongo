@@ -83,3 +83,33 @@ $$;
 
 revoke execute on function delete_lookup(text, text) from public, anon, authenticated;
 grant execute on function public.delete_lookup(text, text) to service_role;
+
+-- 2026-11-08: 答えの出なかった調べ方のドットを消す（1回だけ実行）。
+-- それまで helperLookup は答えを待たずに record_lookup していたので、エラーで終わったモード
+-- （かなだけの語の漢字辞典＝「漢字が含まれていません」、APIエラー など）も modes に残っていた。
+-- 今は答えが出てから記録する（lookup/core.js の recordAnsweredLookup）。
+-- 残すモード: 漢字辞典は語に漢字があるとき / 使い分けはキーが別なのでそのまま / ほかは保存済みの答えがあるとき。
+-- まず確認（消えるドットの一覧）:
+--   select h.query, h.modes,
+--          array(select m from unnest(h.modes) m
+--                 where not case
+--                   when m = 'jiten' then h.query ~ '[㐀-鿿豈-﫿]'
+--                   when m = 'cmp'   then true
+--                   else exists (select 1 from lookup_entries e where e.query = h.query and e.mode = m)
+--                 end) as removing
+--     from lookup_history h
+--    where exists (select 1 from unnest(h.modes) m
+--                   where not case
+--                     when m = 'jiten' then h.query ~ '[㐀-鿿豈-﫿]'
+--                     when m = 'cmp'   then true
+--                     else exists (select 1 from lookup_entries e where e.query = h.query and e.mode = m)
+--                   end);
+-- よければ消す:
+--   update lookup_history h
+--      set modes = array(select m from unnest(h.modes) with ordinality t(m, i)
+--                         where case
+--                           when m = 'jiten' then h.query ~ '[㐀-鿿豈-﫿]'
+--                           when m = 'cmp'   then true
+--                           else exists (select 1 from lookup_entries e where e.query = h.query and e.mode = m)
+--                         end
+--                         order by i);

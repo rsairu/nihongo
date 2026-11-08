@@ -191,7 +191,7 @@ function renderHelperTabs() {
 }
 
 function createModeState() {
-  return { entry: null, error: "", loading: false, fetchId: 0, controller: null, enShown: false, glossShown: false };
+  return { entry: null, error: "", loading: false, fetchId: 0, controller: null, enShown: false, glossShown: false, pendingRecord: null };
 }
 
 function createHelperItem(query, context) {
@@ -381,9 +381,28 @@ function selectHelperHistory(id, mode) {
   if (!st.entry && !st.loading) runHelperFetch(item, helperMode);
 }
 
+// 履歴（store）への記録は答えが出てから。エラーで終わった調べ方は残さない。
+// 2026-11-08 うなだれる: かなだけの語を漢字辞典で引くと「漢字が含まれていません」で終わるのに、
+// 調べた時点で jiten を記録していたので、履歴に答えのない漢字辞典のドットが残った。
+// record = { context, bump }（helperLookup から）。調べ直しや 小6モード の取り直しは記録しない（record なし）。
+function recordAnsweredLookup(item, mode, record) {
+  if (!record || !lookupStore) return;
+  lookupStore.recordLookup(item.query, mode, record.context || null, record.bump);
+}
+
+// 取得中にもう一度 helperLookup されたら、答えが出たときに1回だけ記録する（bump はどちらかが数えるなら数える）
+function mergePendingRecord(have, record) {
+  if (!record) return have || null;
+  if (!have) return record;
+  return { context: record.context || have.context, bump: Boolean(have.bump || record.bump) };
+}
+
 function finishHelperFetch(item, mode, fetchId, entry, error) {
   const st = modeState(item, mode);
   if (st.fetchId !== fetchId) return;
+  const pending = st.pendingRecord;
+  st.pendingRecord = null;
+  if (!error) recordAnsweredLookup(item, mode, pending);
   if (!helperHistory.includes(item)) return;
   st.loading = false;
   st.controller = null;
@@ -394,15 +413,23 @@ function finishHelperFetch(item, mode, fetchId, entry, error) {
 
 async function runHelperFetch(item, mode, options) {
   const force = Boolean(options && options.force);
+  const record = (options && options.record) || null;
   const st = modeState(item, mode);
-  if (st.loading) return;
-  if (!force && st.entry && !st.error) return;
+  if (st.loading) {
+    st.pendingRecord = mergePendingRecord(st.pendingRecord, record);
+    return;
+  }
+  if (!force && st.entry && !st.error) {
+    recordAnsweredLookup(item, mode, record);
+    return;
+  }
 
   if (!force) {
     const cached = cachedModeEntry(mode, item.query);
     if (cached) {
       st.entry = cached;
       st.error = "";
+      recordAnsweredLookup(item, mode, record);
       if (isSuggestionEntry(cached)) releaseReadingCooldown(item.id, mode);
       repaintHelper(item, mode);
       return;
@@ -414,6 +441,7 @@ async function runHelperFetch(item, mode, options) {
   st.error = "";
   if (!keepSentence) st.entry = null;
   const fetchId = ++st.fetchId;
+  st.pendingRecord = record;
   repaintHelper(item, mode);
 
   if (!hasApiKey() && !useProxy()) {
@@ -485,7 +513,8 @@ function helperLookup(queryOverride, options) {
   } else {
     item = createHelperItem(query, opts.context);
   }
-  if (lookupStore) lookupStore.recordLookup(query, helperMode, opts.context || null, bump);
+  // 履歴への記録（record_lookup）は答えが出てから（runHelperFetch → recordAnsweredLookup）
+  const record = { context: opts.context || null, bump };
   item.mode = helperMode;
   markModeUsed(item, helperMode);
   if (helperExpandedId && helperExpandedId !== item.id) helperExpandedId = 0;
@@ -495,7 +524,7 @@ function helperLookup(queryOverride, options) {
   // 休みは答えより先に始める（保存済みの もしかして はすぐ出て、そこで取り消されるので）
   if (!opts.skipReadingCooldown) startReadingCooldown({ itemId: item.id, mode: helperMode });
   paintHelperItem(item);
-  runHelperFetch(item, helperMode);
+  runHelperFetch(item, helperMode, { record });
 }
 
 function setHelperMode(mode) {
