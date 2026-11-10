@@ -1659,19 +1659,9 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
   font-size: 0.8rem;
 }
 
-/* 核 のすぐ後ろ（見つからなければ判定の行）の丸いアイコン。見た目は漢字辞典の .jiten-follow-btn をそのまま使う */
-.iimawashi-follow {
-  display: inline-flex;
-  gap: 4px;
-  margin: 0 4px 0 6px;
-  vertical-align: middle;
-}
-
 .iimawashi-core-text {
   font-weight: 650;
 }
-
-#helperIimawashiVerdict .iimawashi-follow { margin: 0; }
 
 #helperIimawashiNote {
   margin-top: 8px;

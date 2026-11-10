@@ -19,9 +19,6 @@ const IIMAWASHI_VERDICTS = [
   { key: "不明", sub: "判断できない" }
 ];
 
-// 例文アイコンを出す判定（決まった言い方なので例文に意味がある）。普通・独自・不自然・不明 には出さない。
-const IIMAWASHI_SENTENCE_VERDICTS = ["定型", "慣用的"];
-
 let iimawashiEntry = null;
 let iimawashiEnShown = false;
 
@@ -76,38 +73,8 @@ async function fetchIimawashiEntry(query, signal) {
   return parseIimawashiResponse(await requestPrompt("iimawashi", buildIimawashiPrompt(query), signal));
 }
 
-// 核 の横の丸いアイコン（漢字辞典の「よく使う言葉」の切り替えと同じ見た目）。押すとそのモードで 核 を調べる。
-function iimawashiFollowButton(mode, icon, word, context) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "jiten-follow-btn";
-  btn.dataset.mode = mode;
-  const label = "「" + word + "」を" + HELPER_MODE_LABELS[mode] + "で調べる";
-  btn.title = label;
-  btn.setAttribute("aria-label", label);
-  const img = document.createElement("img");
-  img.className = "mode-icon";
-  img.src = "icons_png/web/" + icon;
-  img.alt = "";
-  img.width = 48;
-  img.height = 48;
-  btn.append(img);
-  btn.addEventListener("click", () => helperLookup(word, context ? { mode, context } : { mode }));
-  return btn;
-}
-
-function iimawashiFollowButtons(entry) {
-  const group = document.createElement("span");
-  group.className = "iimawashi-follow";
-  group.append(iimawashiFollowButton("dict", "lookup.png", entry.core));
-  if (IIMAWASHI_SENTENCE_VERDICTS.includes(entry.verdict)) {
-    group.append(iimawashiFollowButton("sentence", "sentence.png", entry.core, { reading: "", meaning: entry.en || "" }));
-  }
-  return group;
-}
-
-// 入力をそのまま大きく出し、核 に色を付けて、そのすぐ後ろに辞書（と例文）のアイコン。
-// 核 が入力の中にない（活用している）ときは false を返し、呼び出し側が判定の行に 核 とアイコンを出す。
+// 入力をそのまま大きく出し、核 に色を付ける。
+// 核 が入力の中にない（活用している）ときは false を返し、呼び出し側が判定の行に 核 を出す。
 function renderIimawashiQuery(query, entry) {
   helperIimawashiText.replaceChildren();
   const core = entry.core;
@@ -122,7 +89,6 @@ function renderIimawashiQuery(query, entry) {
   helperIimawashiText.append(
     document.createTextNode(query.slice(0, at)),
     mark,
-    iimawashiFollowButtons(entry),
     document.createTextNode(query.slice(at + core.length))
   );
   return true;
@@ -181,12 +147,12 @@ function renderIimawashiEntry(entry, query, enShown) {
   sub.className = "iimawashi-sub";
   sub.textContent = verdict.sub;
   helperIimawashiVerdict.append(badge, sub);
-  // 核 が入力の中に見つからなかった（活用している）ときは、判定の行に 核 とアイコンを出す
+  // 核 が入力の中に見つからなかった（活用している）ときは、判定の行に 核 を出す
   if (entry.core && !coreShown) {
     const core = document.createElement("span");
     core.className = "iimawashi-core-text";
     core.textContent = entry.core;
-    helperIimawashiVerdict.append(core, iimawashiFollowButtons(entry));
+    helperIimawashiVerdict.append(core);
   }
 
   // 解説の漢字はクリックで調べない（語ではなく漢字のかたまりを拾うだけなので）

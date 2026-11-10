@@ -104,11 +104,14 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
 - 言い回し (`iimawashi`, `buildIimawashiPrompt`, `parseIimawashiResponse`, Opus 5.5 at effort medium, maxTokens 4096 for thinking):
   for a word, phrase or sentence, judges whether it's an established expression, a normal way to say it, or the author's own wording,
   and translates it. Labels: `判定:` (one of `IIMAWASHI_VERDICTS`: 定型 dictionary idiom / 慣用的 conventional figure used the usual way /
-  普通 literal combination / 独自 author's own / 不自然 / 不明), `核:` (the part that matters, highlighted in Q with `mark.iimawashi-core`
-  when it's found verbatim, and a button to 辞書), `解説:` (Japanese, kanji clickable → 辞書), `直訳:` and `訳:` (English, in the same
-  reply and shown small like 漢字辞典's EN; 直訳 is hidden when it's the same as 訳, `sameEnglish`), `関連:` (up to 4 related expressions as
-  chips → 辞書). 慣用的 vs 普通 is "is there a conventional figurative piece" — keep that line clean in the prompt.
-  Kanji clicked inside the 解説 go to 辞書 (`helperLookupFromHighlight`), like in 例文.
+  普通 literal combination / 独自 author's own / 不自然 / 不明), `核:` (the part that matters), `解説:` (Japanese, plain text: no
+  click-to-look-up on its kanji, since that grabs kanji runs, not words), `直訳:` and `訳:` (English), `関連:` (up to 4 related
+  expressions as chips → 辞書). 慣用的 vs 普通 is "is there a conventional figurative piece" — keep that line clean in the prompt.
+  - 核 is highlighted in Q (`mark.iimawashi-core`). No lookup buttons on it (tried 2026-11-09, removed). When 核 isn't in Q verbatim
+    (Q inflects it), 核 is shown as plain text on the 判定 line instead (`.iimawashi-core-text`).
+  - English is hidden like 辞書's 英訳: one 英訳を表示 button (`#helperIimawashiEnBtn`) shows both 訳 and 直訳 (`#helperIimawashiEn`).
+    They come in the same reply, so no second request. 直訳 is left out when it's the same as 訳 (`sameEnglish`). Shown/hidden is
+    remembered per history item (`modeState(item, "iimawashi").enShown`, passed to `renderIimawashiEntry` by `paintHelperItem`).
 - `PROMPT_SETTINGS[mode].noGakusei` (ふりがな): the 小6モード harness isn't applied, the cache object is shared between the two
   levels (`cacheBanks.gakusei.furi = cacheBanks.standard.furi`), and answers are saved as `standard`.
 - The proxy (`api/claude.js`) allows only the three 5.5 model IDs, caps max_tokens at 4096 (言い回し needs room to think),
