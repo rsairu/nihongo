@@ -6,7 +6,7 @@
 create table lookup_entries (
   id          bigint generated always as identity primary key,
   query       text not null,   -- cache key: the word / "補償・報酬" for cmp / a single character for jiten
-  mode        text not null check (mode in ('dict','kanji','sentence','thes','cmp','jiten','furi')),
+  mode        text not null check (mode in ('dict','kanji','sentence','thes','cmp','jiten','furi','iimawashi')),
   level       text not null default 'standard' check (level in ('standard','gakusei')),  -- 小6モード gets its own answers
   entry       jsonb not null,  -- the parsed object the UI renders (sentence = array that grows on regenerate)
   model       text,
@@ -64,6 +64,12 @@ grant execute on function public.record_lookup(text, text, jsonb, boolean) to se
 --   alter table lookup_entries drop constraint if exists lookup_entries_mode_check;
 --   alter table lookup_entries add constraint lookup_entries_mode_check
 --     check (mode in ('dict','kanji','sentence','thes','cmp','jiten','furi'));
+
+-- 2026-11-09: 言い回し（iimawashi）モードを追加。すでに作ってあるプロジェクトでは、これを1回だけ実行する
+-- （実行しないと、言い回しの答えが保存されない）:
+--   alter table lookup_entries drop constraint if exists lookup_entries_mode_check;
+--   alter table lookup_entries add constraint lookup_entries_mode_check
+--     check (mode in ('dict','kanji','sentence','thes','cmp','jiten','furi','iimawashi'));
 
 -- 2026-10-25: 履歴ページの × で1語を消す。履歴の行と、その語の保存済みの答えを1回でまとめて消す。
 -- 漢字辞典（jiten）の答えは1字ずつで、ほかの語と共有しているので残す。

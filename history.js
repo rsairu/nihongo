@@ -5,8 +5,8 @@
 
   const PAGE_SIZE = 50;
   const FONT_SCALE_STORAGE_KEY = "vocab-clicker-font-scale"; // lookup/settings.js と同じ
-  const MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"];
-  const MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな" };
+  const MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi", "iimawashi"];
+  const MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな", iimawashi: "言い回し" };
   const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
   const listEl = document.getElementById("historyList");

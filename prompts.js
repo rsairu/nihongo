@@ -6,23 +6,34 @@
 // 各プロンプトの上に「解析: 関数名 / ラベル」を書いてある。
 // JITEN_MAX_WORDS と CMP_LETTERS は lookup/modes/jiten.js・cmp.js 側の定数（パーサーと共有）。
 
-const CLAUDE_MODEL = "claude-haiku-4-5";
-const CLAUDE_MODEL_SONNET = "claude-sonnet-4-5";
+const CLAUDE_MODEL = "claude-haiku-5-5";
+const CLAUDE_MODEL_SONNET = "claude-sonnet-5-5";
+const CLAUDE_MODEL_OPUS = "claude-opus-5-5";
 
-// モード別の設定。temperature を省くと 0。max_tokens は Vercel のプロキシ側で 1024 が上限（api/claude.js）。
+// モード別の設定。
+// 2026-11-09: 4.5 世代から 5.5 世代へ。5.5 世代は API の決まりが変わった:
+//   - temperature は送れない（既定値以外は 400）。どのモードも送らない。例文の「毎回ちがう文」はプロンプトの指示と前の文の一覧で出す。
+//   - 考える（adaptive thinking）のが既定。考えた分も max_tokens に数えられるので、ほかのモードは thinking: false で切る
+//     （Haiku は {type:"disabled"}、Sonnet は {type:"between_tools"}。lookup/api.js の thinkingOffFor）。
+//     Opus 5.5 は切れない。effort で考える量を決める。
+//   - トークナイザーが変わり、同じ文が約3割多いトークンになる。max_tokens はそのぶん増やした（使った分しかかからない）。
+// effort: low | medium | high（考えない設定のモデルは high まで）。max_tokens の上限は Vercel のプロキシ側（api/claude.js）。
 // noGakusei: true のモードは小6モードのハーネスをかけない（lookup/api.js の requestPrompt / lookup/saved.js の persistModeEntry）。
 const PROMPT_SETTINGS = {
-  dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 400,  temperature: 0 },   // 辞書（定義）
-  en:       { model: CLAUDE_MODEL,        maxTokens: 200,  temperature: 0 },   // 辞書（英訳を表示）
-  gloss:    { model: CLAUDE_MODEL,        maxTokens: 60,   temperature: 0 },   // 辞書（訳語を表示）: 訳 のない保存済みの答えだけ
-  sentence: { model: CLAUDE_MODEL_SONNET, maxTokens: 256,  temperature: 0.9 }, // 例文: 毎回ちがう文がほしいので高め
-  jiten:    { model: CLAUDE_MODEL_SONNET, maxTokens: 480,  temperature: 0 },   // 漢字辞典（1字1リクエスト）
-  thes:     { model: CLAUDE_MODEL,        maxTokens: 280,  temperature: 0 },   // 類義語
-  cmp:      { model: CLAUDE_MODEL_SONNET, maxTokens: 1000, temperature: 0 },   // 使い分け
-  kanji:    { model: CLAUDE_MODEL_SONNET, maxTokens: 220,  temperature: 0 },   // 漢字表記
+  dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 520,  effort: "high", thinking: false }, // 辞書（定義）
+  en:       { model: CLAUDE_MODEL,        maxTokens: 260,  effort: "high", thinking: false }, // 辞書（英訳を表示）
+  gloss:    { model: CLAUDE_MODEL,        maxTokens: 80,   effort: "high", thinking: false }, // 辞書（訳語を表示）: 訳 のない保存済みの答えだけ
+  sentence: { model: CLAUDE_MODEL_SONNET, maxTokens: 340,  effort: "high", thinking: false }, // 例文
+  jiten:    { model: CLAUDE_MODEL_SONNET, maxTokens: 640,  effort: "high", thinking: false }, // 漢字辞典（1字1リクエスト）
+  thes:     { model: CLAUDE_MODEL,        maxTokens: 370,  effort: "high", thinking: false }, // 類義語
+  cmp:      { model: CLAUDE_MODEL_SONNET, maxTokens: 1300, effort: "high", thinking: false }, // 使い分け
+  kanji:    { model: CLAUDE_MODEL_SONNET, maxTokens: 290,  effort: "high", thinking: false }, // 漢字表記
   // ふりがな: 読みだけ。文を入れることもあるので max_tokens は多め（使った分しかかからない）。
   // noGakusei: 読みは小6モードでも同じなので、ハーネスをかけず、答えも2つのレベルで共有する（保存は standard）。
-  furi:     { model: CLAUDE_MODEL_SONNET, maxTokens: 1000, temperature: 0, noGakusei: true }
+  furi:     { model: CLAUDE_MODEL_SONNET, maxTokens: 1300, effort: "high", thinking: false, noGakusei: true },
+  // 言い回し: 「ふつうに言うか」の判定は知識と判断が要るので Opus で考えさせる（Opus 5.5 は考えるのを切れない）。
+  // 返事は 150〜300 トークンほど。残りは考える分。medium で足りないとき（判定がぶれる）は high にして max_tokens も増やす。
+  iimawashi: { model: CLAUDE_MODEL_OPUS,  maxTokens: 4096, effort: "medium", thinking: true }
 };
 
 // ── もしかして（辞書・漢字表記で共通）────────────
@@ -261,4 +272,45 @@ function buildKanjiPrompt(query, context) {
   if (context && context.reading) lines.push("Reading: " + context.reading);
   if (context && context.meaning) lines.push("Meaning: " + context.meaning);
   return lines.join("\n");
+}
+
+// ── 言い回し ────────────────────────────
+// 語・フレーズ・文が「決まった言い方か、ふつうに言うか、作者の独自の表現か」の判定と、訳。
+// 解析: parseIimawashiResponse / 判定:（IIMAWASHI_VERDICTS のどれか）, 核:, 解説:, 直訳:, 訳:, 関連:（、区切り）
+// 判定の分け方（2026-11-09）:
+//   定型   辞書の見出しになる慣用句・ことわざ・決まり文句（猫の手も借りたい）
+//   慣用的 見出しではないが、決まった比喩の部分を型どおりに使っていて、ふつうに言う（雲の上の話 ← 雲の上）
+//   普通   比喩なしの、字どおりの言葉の組み合わせ。自然だが、意味は部分から出る
+//   独自   作者の比喩・言葉遊び・珍しい組み合わせ。通じるが、ふつうは言わない
+//   不自然 誤用、またはネイティブには不自然
+//   不明   判断できない
+// 慣用的 と 普通 の境目は「決まった比喩の部分があるか（部分の字面から意味が出ないか）」。
+// 英語（直訳・訳）は漢字辞典の EN と同じく、同じ返事に入れて小さく出す。直訳は 訳 とほぼ同じなら表示しない（アプリ側）。
+function buildIimawashiPrompt(query) {
+  return [
+    "A learner reading Japanese fiction asks about this snippet: is it an established expression, a normal way to say it, or the author's own creative wording? Then translate it.",
+    "",
+    "Steps:",
+    "1. Find the part of Q that matters for this question (核): the idiom, set phrase, figurative piece or unusual combination. Drop surrounding grammar like 私には…だが. If nothing in Q is idiomatic or unusual, 核 is the main phrase.",
+    "2. Decide whether 核, or a fixed expression it is built on, is a headword or listed idiom in standard dictionaries (大辞林・明鏡国語辞典・故事ことわざ辞典). This is the most checkable fact; settle it before judging.",
+    "3. Pick exactly one 判定:",
+    "   定型: 核 itself is a dictionary idiom, proverb or set phrase (猫の手も借りたい, 口が減らない).",
+    "   慣用的: not a headword itself, but it uses a conventional figurative piece in its usual way, and native speakers say it routinely (雲の上の話, built on 雲の上 = out of reach). Its meaning can't be worked out from the literal words alone.",
+    "   普通: a natural, literal combination of words. No idiom or conventional figure; the meaning comes from the parts.",
+    "   独自: the writer's own metaphor, wordplay or unusual combination. Understandable, but people don't normally say it this way. If it bends or riffs on a known expression, say which one.",
+    "   不自然: a misuse or something a native speaker would find unnatural.",
+    "   不明: you genuinely can't tell. Prefer 不明 over a confident guess.",
+    "Don't call something 定型 or 慣用的 just because it sounds literary. Build no meaning from the literal parts of a real idiom.",
+    "",
+    "Output these 6 lines in this order and nothing else:",
+    "判定: <定型 | 慣用的 | 普通 | 独自 | 不自然 | 不明>",
+    "核: <the key expression, copied from Q (dictionary form if Q inflects it)>",
+    "解説: <1-3 short Japanese sentences, all on ONE line: what it means here, how it's built (which idiom or figure it rests on), register, and why you chose that 判定>",
+    "直訳: <literal English rendering of Q, word for word but readable>",
+    "訳: <natural English translation of Q in context>",
+    "関連: <up to 4 related established expressions (the idiom it rests on, close set phrases with similar meaning), separated by 、, or なし>",
+    "No quotes, markdown, readings in parentheses, or extra commentary.",
+    "",
+    "Q: " + query
+  ].join("\n");
 }

@@ -20,6 +20,8 @@
   --jiten-soft: #f1dfe0;
   --furi: #4b4f9e;
   --furi-soft: #e2e3f2;
+  --iimawashi: #5d6b22;
+  --iimawashi-soft: #e8ebd6;
   --handwriting: #6b7078; /* 入力方法なので調べ方タブとは別のグレー */
   --handwriting-soft: #e6e7ea;
   --selected: #2f6f4e;
@@ -661,6 +663,13 @@ button:disabled {
   border-color: #cfd0e6;
 }
 
+.lookup-box[data-mode="iimawashi"] {
+  --accent: var(--iimawashi);
+  --accent-soft: var(--iimawashi-soft);
+  background: #f8f9f2;
+  border-color: #d6dbbd;
+}
+
 .lookup-box[data-ui-tab="handwriting"] {
   --accent: var(--handwriting);
   --accent-soft: var(--handwriting-soft);
@@ -749,6 +758,11 @@ button:disabled {
   border-color: var(--furi);
 }
 
+.helper-mode[data-mode="iimawashi"].active {
+  background: var(--iimawashi-soft);
+  border-color: var(--iimawashi);
+}
+
 body.dragging-word .helper-mode {
   border-style: dashed;
 }
@@ -779,6 +793,10 @@ body.dragging-word .helper-mode[data-mode="jiten"] {
 
 body.dragging-word .helper-mode[data-mode="furi"] {
   border-color: var(--furi);
+}
+
+body.dragging-word .helper-mode[data-mode="iimawashi"] {
+  border-color: var(--iimawashi);
 }
 
 .helper-mode.drop-target {
@@ -819,6 +837,11 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 .helper-mode[data-mode="furi"].drop-target {
   background: var(--furi);
   border-color: var(--furi);
+}
+
+.helper-mode[data-mode="iimawashi"].drop-target {
+  background: var(--iimawashi);
+  border-color: var(--iimawashi);
 }
 
 .lookup-row {
@@ -890,8 +913,17 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   overflow-wrap: normal;
 }
 
-/* ふりがな: 文を入れることがあるので、ほかのモードの2倍の高さにして折り返す */
+/* ふりがな・言い回し: 文を入れることがあるので、ほかのモードの2倍の高さにして折り返す */
 .lookup-box[data-mode="furi"] #helperInput {
+  height: calc(2 * (1.2em + 18px));
+  line-height: 1.45;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+}
+
+.lookup-box[data-mode="iimawashi"] #helperInput {
   height: calc(2 * (1.2em + 18px));
   line-height: 1.45;
   border-radius: 14px;
@@ -1117,6 +1149,7 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 .helper-tab-pip[data-mode="cmp"] { background: var(--cmp); }
 .helper-tab-pip[data-mode="jiten"] { background: var(--jiten); }
 .helper-tab-pip[data-mode="furi"] { background: var(--furi); }
+.helper-tab-pip[data-mode="iimawashi"] { background: var(--iimawashi); }
 
 .helper-tab-mode {
   max-width: none;
@@ -1178,6 +1211,12 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   border: 1px solid #c9cae2;
 }
 
+.helper-tab[data-mode="iimawashi"] {
+  background: #ebeedd;
+  color: #4c5820;
+  border: 1px solid #d3d9b6;
+}
+
 .helper-tab:hover {
   opacity: 1;
   color: var(--ink);
@@ -1209,6 +1248,10 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 
 .helper-tab[data-mode="furi"]:hover {
   border-color: var(--furi);
+}
+
+.helper-tab[data-mode="iimawashi"]:hover {
+  border-color: var(--iimawashi);
 }
 
 .helper-tab.active {
@@ -1252,6 +1295,11 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   border-color: var(--furi);
 }
 
+.helper-tab.active[data-mode="iimawashi"] {
+  background: var(--iimawashi-soft);
+  border-color: var(--iimawashi);
+}
+
 .helper-tab-group.expanded > .helper-tab-word.helper-tab,
 .helper-tab-group.expanded > .helper-tab-word.helper-tab:hover,
 .helper-tab-group.expanded > .helper-tab-word.helper-tab.active {
@@ -1287,7 +1335,8 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 #helperResult.error #helperSentence,
 #helperResult.error .thes-empty,
 #helperResult.error .jiten-message,
-#helperResult.error #helperFuriText {
+#helperResult.error #helperFuriText,
+#helperResult.error #helperIimawashiText {
   color: var(--danger);
 }
 
@@ -1485,6 +1534,10 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   --accent: var(--furi);
   --accent-soft: var(--furi-soft);
 }
+.lookup-box[data-mode="iimawashi"] .handwriting-candidate {
+  --accent: var(--iimawashi);
+  --accent-soft: var(--iimawashi-soft);
+}
 
 .handwriting-status {
   align-self: center;
@@ -1503,8 +1556,12 @@ body.dragging-word .helper-mode[data-mode="furi"] {
   line-height: 1.2;
 }
 
-/* ふりがな: 入力そのものが見出しなので、上の小さい語は出さない */
+/* ふりがな・言い回し: 入力そのものが見出しなので、上の小さい語は出さない */
 .lookup-box[data-mode="furi"] #helperWord {
+  display: none;
+}
+
+.lookup-box[data-mode="iimawashi"] #helperWord {
   display: none;
 }
 
@@ -1550,6 +1607,130 @@ body.dragging-word .helper-mode[data-mode="furi"] {
 }
 
 #helperFuriAlt:empty { display: none; }
+
+/* 言い回し: 入力を大きく出し、核（判定した部分）に下線のような色。下に 判定 → 解説 → 英語（訳・直訳）→ 関連。 */
+#helperIimawashiText {
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+#helperIimawashiText mark.iimawashi-core {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: linear-gradient(transparent 58%, var(--iimawashi-soft) 58%);
+  color: inherit;
+  box-shadow: inset 0 -2px 0 var(--iimawashi);
+}
+
+#helperIimawashiVerdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 8px;
+}
+
+#helperIimawashiVerdict:empty { display: none; }
+
+.iimawashi-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--iimawashi);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.iimawashi-badge[data-verdict="普通"] { background: var(--muted); }
+.iimawashi-badge[data-verdict="独自"] { background: var(--sentence); }
+.iimawashi-badge[data-verdict="不自然"] { background: var(--danger); }
+.iimawashi-badge[data-verdict="不明"] {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--muted);
+}
+
+.iimawashi-sub {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* 核 のすぐ後ろ（見つからなければ判定の行）の丸いアイコン。見た目は漢字辞典の .jiten-follow-btn をそのまま使う */
+.iimawashi-follow {
+  display: inline-flex;
+  gap: 4px;
+  margin: 0 4px 0 6px;
+  vertical-align: middle;
+}
+
+.iimawashi-core-text {
+  font-weight: 650;
+}
+
+#helperIimawashiVerdict .iimawashi-follow { margin: 0; }
+
+#helperIimawashiNote {
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+#helperIimawashiNote:empty,
+#helperIimawashiRelated:empty { display: none; }
+
+/* 英訳（訳・直訳）は辞書と同じく「英訳を表示」を押したときだけ */
+#helperIimawashiEn {
+  display: none;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+#helperIimawashiEn.visible { display: block; }
+
+#helperIimawashiEnBtn {
+  display: none;
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+#helperIimawashiEnBtn.visible { display: inline-flex; }
+
+.iimawashi-en-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.iimawashi-en-row + .iimawashi-en-row { margin-top: 2px; }
+
+.iimawashi-en-tag {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+
+#helperIimawashiRelated {
+  align-items: center;
+  margin-top: 10px;
+}
+
+#helperIimawashiRelated .thes-label { margin-right: 2px; }
+
+button.iimawashi-related-chip {
+  padding: 3px 10px;
+  font-size: 0.88rem;
+}
+
+button.iimawashi-related-chip:hover { border-color: var(--iimawashi); }
 
 /* 読み の下の行に 訳語。 */
 .helper-reading-row {

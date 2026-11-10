@@ -17,13 +17,13 @@ const helperModes = document.getElementById("helperModes");
 const lookupBox = document.querySelector(".lookup-box");
 const HELPER_HISTORY_LIMIT = 10;
 const DEEP_LINK_WAIT_MS = 5000; // ?q= で開いたとき、保存済みの答えを待つ上限
-const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"];
-const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな" };
-const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典", furi: "読み" };
+const HELPER_MODES = ["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi", "iimawashi"];
+const HELPER_MODE_LABELS = { dict: "辞書", kanji: "漢字表記", sentence: "例文", thes: "類義語", cmp: "使い分け", jiten: "漢字辞典", furi: "ふりがな", iimawashi: "言い回し" };
+const HELPER_MODE_CHIP_LABELS = { dict: "辞書", kanji: "漢字", sentence: "例文", thes: "類義", cmp: "使分", jiten: "字典", furi: "読み", iimawashi: "言回" };
 const VOCAB_DRAG_TYPE = "application/x-vocab-item";
 
 function createCacheBank() {
-  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {}, cmp: {}, furi: {} };
+  return { sentence: {}, dict: {}, kanji: {}, thes: {}, jiten: {}, cmp: {}, furi: {}, iimawashi: {} };
 }
 
 const cacheBanks = { standard: createCacheBank(), gakusei: createCacheBank() };
@@ -45,14 +45,17 @@ let jitenCache = cacheBanks.standard.jiten;
 /** @type {Record<string, {ruby: {t: string, r?: string}[], reading: string, alt: string[]}>} ふりがな */
 let furiCache = cacheBanks.standard.furi;
 
+/** @type {Record<string, {verdict: string, core: string, note: string, literal: string, en: string, related: string[]}>} 言い回し */
+let iimawashiCache = cacheBanks.standard.iimawashi;
+
 let helperNextId = 0;
 let helperActiveId = 0;
 let helperExpandedId = 0;
 
-/** @type {"dict" | "kanji" | "sentence" | "thes" | "cmp" | "jiten" | "furi"} */
+/** @type {"dict" | "kanji" | "sentence" | "thes" | "cmp" | "jiten" | "furi" | "iimawashi"} */
 let helperMode = "dict";
 
-/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, cmp: object, jiten: object, furi: object}[]} */
+/** @type {{id: number, query: string, context: {reading: string, meaning: string} | null, mode: string, usedModes: string[], dict: object, kanji: object, sentence: object, thes: object, cmp: object, jiten: object, furi: object, iimawashi: object}[]} */
 let helperHistory = [];
 
 function getActiveHelperItem() {
@@ -207,7 +210,8 @@ function createHelperItem(query, context) {
     thes: createModeState(),
     jiten: createModeState(),
     cmp: createModeState(),
-    furi: createModeState()
+    furi: createModeState(),
+    iimawashi: createModeState()
   };
 }
 
@@ -232,6 +236,10 @@ function modeState(item, mode) {
   if (mode === "furi") {
     if (!item.furi) item.furi = createModeState();
     return item.furi;
+  }
+  if (mode === "iimawashi") {
+    if (!item.iimawashi) item.iimawashi = createModeState();
+    return item.iimawashi;
   }
   return item.dict;
 }
@@ -267,6 +275,7 @@ function cachedModeEntry(mode, query) {
   if (mode === "thes") return thesCache[query];
   if (mode === "cmp") return cmpCache[cmpCacheKey(query)];
   if (mode === "furi") return furiCache[query];
+  if (mode === "iimawashi") return iimawashiCache[query];
   if (mode === "jiten") {
     const chars = jitenChars(query);
     if (!chars.length) return null;
@@ -283,6 +292,7 @@ function cacheModeEntry(mode, query, entry) {
   else if (mode === "thes") thesCache[query] = entry;
   else if (mode === "cmp") cmpCache[cmpCacheKey(query)] = entry;
   else if (mode === "furi") furiCache[query] = entry;
+  else if (mode === "iimawashi") iimawashiCache[query] = entry;
   else if (mode === "jiten") {
     for (const k of (entry && entry.kanji) || []) jitenCache[k.char] = k;
   } else dictCache[dictCacheKey(query, "")] = entry;
@@ -296,6 +306,7 @@ function renderHelperModes() {
   helperInput.placeholder =
     helperMode === "cmp" ? CMP_INPUT_PLACEHOLDER
     : helperMode === "furi" ? FURI_INPUT_PLACEHOLDER
+    : helperMode === "iimawashi" ? IIMAWASHI_INPUT_PLACEHOLDER
     : HELPER_INPUT_PLACEHOLDER;
   if (handwritingOpen) lookupBox.dataset.uiTab = HANDWRITING_TAB;
   else delete lookupBox.dataset.uiTab;
@@ -324,6 +335,7 @@ function paintHelperItem(item) {
   helperCmpBlock.classList.toggle("visible", helperMode === "cmp");
   helperJitenBlock.classList.toggle("visible", helperMode === "jiten");
   helperFuriBlock.classList.toggle("visible", helperMode === "furi");
+  helperIimawashiBlock.classList.toggle("visible", helperMode === "iimawashi");
   renderHelperModes();
 
   const st = modeState(item, helperMode);
@@ -353,6 +365,10 @@ function paintHelperItem(item) {
     if (st.error) renderFuriError(st.error);
     else if (st.entry) renderFuriEntry(st.entry, item.query);
     else renderFuriPending("…");
+  } else if (helperMode === "iimawashi") {
+    if (st.error) renderIimawashiError(st.error);
+    else if (st.entry) renderIimawashiEntry(st.entry, item.query, st.enShown);
+    else renderIimawashiPending("考えています…");
   } else if (st.error) {
     renderSentenceError(st.error);
   } else if (st.entry) {
@@ -471,6 +487,8 @@ async function runHelperFetch(item, mode, options) {
       parsed = await fetchJitenEntry(item.query, controller.signal);
     } else if (mode === "furi") {
       parsed = await fetchFuriEntry(item.query, controller.signal);
+    } else if (mode === "iimawashi") {
+      parsed = await fetchIimawashiEntry(item.query, controller.signal);
     } else {
       parsed = await fetchDictWithPrompt(buildFreeLookupPrompt(item.query), controller.signal, item.query);
     }
@@ -486,6 +504,7 @@ async function runHelperFetch(item, mode, options) {
       : mode === "cmp" ? "使い分けを読み込めませんでした"
       : mode === "jiten" ? (err && err.userMessage) || "漢字辞典を読み込めませんでした"
       : mode === "furi" ? "読みを読み込めませんでした"
+      : mode === "iimawashi" ? "言い回しを読み込めませんでした"
       : "読み込めませんでした";
     if (keepSentence) {
       finishHelperFetch(item, mode, fetchId, st.entry, "");
@@ -644,7 +663,7 @@ helperForm.addEventListener("submit", (e) => {
   helperLookup();
 });
 
-// 入力欄は <textarea>（ふりがなモードで2行に折り返すため。ほかのモードでは1行・横スクロールで今までの見た目）。
+// 入力欄は <textarea>（ふりがな・言い回しモードで2行に折り返すため。ほかのモードでは1行・横スクロールで今までの見た目）。
 // 改行は入れない: Enter で調べる、貼り付けた改行は消す。
 function stripLineBreaks(text) {
   return String(text || "").replace(/[\r\n]+/g, "");

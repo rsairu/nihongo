@@ -44,6 +44,7 @@ body.history-body {
 .history-filter-btn[data-mode="cmp"] { --filter: var(--cmp); --filter-soft: var(--cmp-soft); }
 .history-filter-btn[data-mode="kanji"] { --filter: var(--kanji); --filter-soft: var(--kanji-soft); }
 .history-filter-btn[data-mode="furi"] { --filter: var(--furi); --filter-soft: var(--furi-soft); }
+.history-filter-btn[data-mode="iimawashi"] { --filter: var(--iimawashi); --filter-soft: var(--iimawashi-soft); }
 
 button.history-filter-btn {
   flex: 0 0 auto;
@@ -206,6 +207,7 @@ button.history-delete:focus-visible {
 .history-row[data-mode="cmp"] { --row-mode: var(--cmp); }
 .history-row[data-mode="jiten"] { --row-mode: var(--jiten); }
 .history-row[data-mode="furi"] { --row-mode: var(--furi); }
+.history-row[data-mode="iimawashi"] { --row-mode: var(--iimawashi); }
 
 /* ふりがなモードの文は長いので2行まで（全文は title） */
 .history-word {

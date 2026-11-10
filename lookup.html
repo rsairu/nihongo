@@ -58,6 +58,7 @@
       <button id="helperModeCmp" class="helper-mode" type="button" role="tab" title="使い分け" aria-selected="false" aria-controls="helperCmpBlock" data-mode="cmp"><img class="mode-icon" src="icons_png/web/compare.png" alt="" width="48" height="48" /><span class="mode-label">使い分け</span></button>
       <button id="helperModeKanji" class="helper-mode" type="button" role="tab" title="漢字表記" aria-selected="false" aria-controls="helperKanjiBlock" data-mode="kanji"><img class="mode-icon" src="icons_png/web/kana.png" alt="" width="48" height="48" /><span class="mode-label">漢字表記</span></button>
       <button id="helperModeFuri" class="helper-mode" type="button" role="tab" title="ふりがな" aria-selected="false" aria-controls="helperFuriBlock" data-mode="furi"><img class="mode-icon" src="icons_png/web/furigana.png" alt="" width="48" height="48" /><span class="mode-label">ふりがな</span></button>
+      <button id="helperModeIimawashi" class="helper-mode" type="button" role="tab" title="言い回し" aria-selected="false" aria-controls="helperIimawashiBlock" data-mode="iimawashi"><img class="mode-icon" src="icons_png/web/iimawashi.png" alt="" width="48" height="48" /><span class="mode-label">言い回し</span></button>
     </div>
     <form id="helperForm" class="lookup-row">
       <button id="helperModeHandwriting" class="handwriting-toggle" type="button" aria-pressed="false" aria-controls="helperHandwritingBlock" aria-label="手書き入力" title="手書き入力"><img class="mode-icon" src="icons_png/web/handwriting.png" alt="" width="48" height="48" /></button>
@@ -128,6 +129,14 @@
         <div id="helperFuriReading" title="クリックでコピー"></div>
         <div id="helperFuriAlt"></div>
       </div>
+      <div id="helperIimawashiBlock" class="helper-block" role="tabpanel" aria-labelledby="helperModeIimawashi">
+        <div id="helperIimawashiText" lang="ja"></div>
+        <div id="helperIimawashiVerdict"></div>
+        <div id="helperIimawashiNote"></div>
+        <div id="helperIimawashiEn"></div>
+        <button id="helperIimawashiEnBtn" class="secondary" type="button" title="訳と直訳">英訳を表示</button>
+        <div id="helperIimawashiRelated" class="thes-list"></div>
+      </div>
       <div id="helperHandwritingBlock" class="helper-block" role="region" aria-label="手書き入力">
         <div class="handwriting-pad">
           <canvas id="handwritingCanvas" aria-label="手書き入力エリア"></canvas>
@@ -154,7 +163,7 @@
 
   <dialog id="about" aria-labelledby="aboutTitle">
     <h2 id="aboutTitle">使い方</h2>
-    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・使い分け・漢字辞典・ふりがなで調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
+    <p class="lede">単語やフレーズを入力して、辞書・漢字表記・例文・類義語・使い分け・漢字辞典・ふりがな・言い回しで調べます。タブを切り替えると、同じ単語をそのモードで調べ直せます。</p>
     <div class="words-help" aria-label="操作">
       <span><kbd>Enter</kbd>調べる</span>
       <span><kbd>訳語 / 英訳</kbd>辞書で、訳語は語そのものの英語（読みの下）、英訳は定義の英語（定義の下）</span>
@@ -164,6 +173,7 @@
       <span><kbd>もしかして</kbd>辞書・漢字表記で、打ちまちがいや変換ミス（賞も無い など）のときは、正しそうな語だけを出します。押すとその語を同じタブで調べる</span>
       <span><kbd>使い分け</kbd>2〜3語を「・」や空白で区切って入力 → 場面・硬さ・ニュアンスの違いと、その語にしか使えない例文。1語だけなら、まぎらわしい近い語を選んで比べる</span>
       <span><kbd>ふりがな</kbd>語・フレーズ・動詞・文の読みだけ（意味は出しません）。入力欄が2行になり、長い文も折り返します。漢字の上にふりがな、下に全体の読み（クリックでコピー）</span>
+      <span><kbd>言い回し</kbd>語・フレーズ・文が、辞書に載っている決まった言い方（定型）か、決まった比喩を使ったふつうの言い方（慣用的）か、字どおりの組み合わせ（普通）か、作者独自の表現（独自）かを判定し、解説と英語（訳・直訳）を出します。入力欄は2行。判定の横の語・「関連」の語は押すと辞書へ。Opus が考えて答えるので、ほかより少し時間がかかります</span>
       <span><kbd>漢字辞典</kbd>入力の漢字を1字ずつ（訓読み・音読み・意味・英語・よく使う言葉）。言葉をクリックで辞書へ。「よく使う言葉」の右の丸いアイコン（辞書・例文・漢字辞典・類義語・漢字表記）で、クリックしたときの調べ方を切り替え（色がついているのが選択中）</span>
       <span><kbd>手書き</kbd>ペンで書いて候補をクリック → 選択中のタブ（辞書・例文・漢字辞典など）で調べる。パッドを開いたままタブを切り替えられます。漢字辞典タブを押すと自動で開きます</span>
       <span><kbd>↶ / Ctrl+Z</kbd>最後の一画を取り消す（直近5画まで）</span>
@@ -196,6 +206,7 @@
   <script src="lookup/modes/cmp.js"></script>
   <script src="lookup/modes/jiten.js"></script>
   <script src="lookup/modes/furi.js"></script>
+  <script src="lookup/modes/iimawashi.js"></script>
   <script src="lookup/handwriting.js"></script>
   <script src="lookup/settings.js"></script>
   <script src="lookup/start.js"></script>

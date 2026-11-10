@@ -13,7 +13,7 @@ Notes for AI agents (Claude, Codex, Cursor, etc.) working in this repo.
 
 ## lookup.html is canonical
 
-The lookup panel (dictionary, 例文, 漢字辞典, 類義語, 使い分け, 漢字表記, ふりがな, 手書き, history tabs, 小6モード)
+The lookup panel (dictionary, 例文, 漢字辞典, 類義語, 使い分け, 漢字表記, ふりがな, 言い回し, 手書き, history tabs, 小6モード)
 is **defined by `lookup.html`**. The side panel in `vocab_clicker.html` is a
 **picture-in-picture version** of that page. It has the same features and the same markup structure,
 but it's smaller, and it sits next to the vocab bubbles.
@@ -26,9 +26,9 @@ but it's smaller, and it sits next to the vocab bubbles.
   button (`#helperModeHandwriting`) to the left of the input inside `#helperForm`.
   It must never be a `.helper-mode` tab inside `#helperModes`, because the generic mode-tab listener
   and the toggle listener would both fire and the tab would close as soon as it opened.
-- `#helperInput` is a `<textarea rows="1">`, not an `<input>`, so ふりがな mode can wrap. In every other mode CSS keeps it
-  one line high with `white-space: pre` (scrolls sideways like the old input). In ふりがな (`[data-mode="furi"]`) it is
-  twice as tall and wraps. Enter submits (keydown handler), and line breaks are stripped on input and in `helperLookup`
+- `#helperInput` is a `<textarea rows="1">`, not an `<input>`, so ふりがな and 言い回し can wrap. In every other mode CSS keeps it
+  one line high with `white-space: pre` (scrolls sideways like the old input). In ふりがな (`[data-mode="furi"]`) and
+  言い回し (`[data-mode="iimawashi"]`) it is twice as tall and wraps. Enter submits (keydown handler), and line breaks are stripped on input and in `helperLookup`
   (`stripLineBreaks`). The height is `calc(1.2em + padding + border)`: change it together with the padding.
   On lookup.html `.lookup-row` has `width: 100%; max-width: 30rem`, the width the old `<input>` gave it.
 
@@ -45,7 +45,7 @@ The lookup panel is split into these files, loaded in this order on both pages:
 | `lookup/api.js` | Sending prompts: API key vs. `/api/claude` proxy, access code, 小6モード harness, `requestPrompt` / `requestClaudeText`. |
 | `lookup/core.js` | The center: `HELPER_MODES` and labels, cache banks, history tabs, `cachedModeEntry` / `cacheModeEntry`, `paintHelperItem` (which mode to show), `runHelperFetch` (which mode to fetch), `helperLookup` (every lookup's entry point), `setHelperMode`, drag-and-drop targets, the input box. |
 | `lookup/saved.js` | Saving and restoring through `store.js`: `persistModeEntry`, `storeKeysFor`, `applyStoredEntries` (+ `repairStoredEntry` / `repairWordList` for old saved answers), `hydrateFromStore`, `initLookupStore`, `?q=` deep links. |
-| `lookup/modes/<mode>.js` | One file per mode (`dict`, `kanji`, `sentence`, `thes`, `cmp`, `jiten`, `furi`): that mode's elements, state, `parse…Response`, `fetch…`, `render…` and its own buttons. 辞書 also has 英訳 / 訳語; 例文 has 作り直し, its 英訳 and highlight-to-look-up; 漢字辞典 has the follow-up picker. |
+| `lookup/modes/<mode>.js` | One file per mode (`dict`, `kanji`, `sentence`, `thes`, `cmp`, `jiten`, `furi`, `iimawashi`): that mode's elements, state, `parse…Response`, `fetch…`, `render…` and its own buttons. 辞書 also has 英訳 / 訳語; 例文 has 作り直し, its 英訳 and highlight-to-look-up; 漢字辞典 has the follow-up picker. |
 | `lookup/handwriting.js` | The 手書き toggle, canvas, Google recognition, candidates and draft. |
 | `lookup/settings.js` | The ⚙ menu: 文字の大きさ, アイコンだけ表示, 小6モード (`setGakuseiMode`, including the cache bank swap), 待てモード (`readingBlocked`, cooldown). |
 | `lookup/start.js` | Runs last: `renderHelperModes()` and `initLookupStore()`. |
@@ -75,8 +75,15 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
 
 ## Prompts
 
-- Every prompt the lookup panel sends lives in `prompts.js`, together with `PROMPT_SETTINGS` (model, max_tokens, temperature per mode).
+- Every prompt the lookup panel sends lives in `prompts.js`, together with `PROMPT_SETTINGS` (model, maxTokens, effort, thinking per mode).
   `lookup/api.js` sends them through `requestPrompt(kind, prompt, signal)`, and each mode's file in `lookup/modes/` parses the replies.
+- Models are the 5.5 generation (2026-11-09): Haiku 5.5, Sonnet 5.5, Opus 5.5 (`CLAUDE_MODEL`, `CLAUDE_MODEL_SONNET`, `CLAUDE_MODEL_OPUS`).
+  Their API rules: no `temperature` (any non-default value is a 400, so nothing sends it); adaptive thinking is **on by default** and
+  thinking tokens count toward `max_tokens`. Modes with `thinking: false` turn it off in `buildClaudeBody` via `thinkingOffFor(model)`
+  (Haiku 5.5 → `{type:"disabled"}`, Sonnet 5.5 → `{type:"between_tools"}`; both only at effort `high` or below). Opus 5.5 can't turn
+  thinking off; `effort` is its only control. `output_config.effort` is sent for every mode. Replies are read by block type
+  (`text` blocks only), and an empty reply that stopped at `max_tokens` throws. The new tokenizer counts about 30% more tokens than
+  the 4.5 models did, so the old max_tokens were raised by that much.
 - Each prompt asks for labeled lines (`読み:`, `類義:`, `例A:` …) and the matching `parse…Response` in `lookup/modes/<mode>.js` reads those labels.
   The comment above each prompt names its parser and labels. Reword freely; change a label only together with its parser.
 - もしかして: 辞書 and 漢字表記 both start with `候補:` (`buildSuggestionRules`, read by `parseSuggestion`). It's filled only when Q isn't an established word or spelling (typo, wrong kanji, bad conversion like 賞も無い). Then the answer is just `{ suggestion }`: the parsers drop any other lines, and `renderDictEntry` / `renderKanjiEntry` show 「見つかりませんでした。もしかして：〇〇」, where 〇〇 is a button that calls `helperLookup` in the same mode. That `{ suggestion }` is what gets cached and saved for the bad query, never a guessed definition or spelling. A lookup that ends in a suggestion cancels the 待てモード cooldown it started (`releaseReadingCooldown`), so tapping the suggestion isn't blocked.
@@ -87,16 +94,25 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
   and add that `<script>` to both pages next to the other modes. Then add the mode to `HELPER_MODES` and the label maps, `createCacheBank`,
   `createHelperItem` / `modeState`, `cachedModeEntry` / `cacheModeEntry`, `paintHelperItem`, `runHelperFetch` (all in `lookup/core.js`),
   `persistModeEntry` / `applyStoredEntries` if its saved shape is special (`lookup/saved.js`), the bank swap in `setGakuseiMode` (`lookup/settings.js`),
-  the per-mode colors in `vocab_clicker.css` and `history.css`, `MODES` in `history.js` and `api/store.js`,
+  the per-mode colors in `vocab_clicker.css` and `history.css` (mirror every `[data-mode="…"]` rule) and a 48px icon in `icons_png/web/`, `MODES` in `history.js` and `api/store.js`,
   and the `mode` check in `db/schema.sql` (existing Supabase projects need the `alter table` from there).
 - ふりがな (`furi`, `buildFuriPrompt`, `parseFuriResponse`): readings only, no meaning. `ルビ:` is Q with `{よみ}` after each
   kanji/digit run; `parseRubyLine` turns it into `[{ t, r? }]` for `<ruby>`. The whole-reading line (`#helperFuriReading`,
   click to copy) is shown only when there's no ruby: if the ruby's base text doesn't match Q (`sameFuriText`), the ruby is
   dropped and Q is shown plain with the reading under it. Q and its ruby are normal weight, with a little letter-spacing on Q. `別:` lists other readings that change
   the meaning (生物 → なまもの), shown as ほかの読み.
+- 言い回し (`iimawashi`, `buildIimawashiPrompt`, `parseIimawashiResponse`, Opus 5.5 at effort medium, maxTokens 4096 for thinking):
+  for a word, phrase or sentence, judges whether it's an established expression, a normal way to say it, or the author's own wording,
+  and translates it. Labels: `判定:` (one of `IIMAWASHI_VERDICTS`: 定型 dictionary idiom / 慣用的 conventional figure used the usual way /
+  普通 literal combination / 独自 author's own / 不自然 / 不明), `核:` (the part that matters, highlighted in Q with `mark.iimawashi-core`
+  when it's found verbatim, and a button to 辞書), `解説:` (Japanese, kanji clickable → 辞書), `直訳:` and `訳:` (English, in the same
+  reply and shown small like 漢字辞典's EN; 直訳 is hidden when it's the same as 訳, `sameEnglish`), `関連:` (up to 4 related expressions as
+  chips → 辞書). 慣用的 vs 普通 is "is there a conventional figurative piece" — keep that line clean in the prompt.
+  Kanji clicked inside the 解説 go to 辞書 (`helperLookupFromHighlight`), like in 例文.
 - `PROMPT_SETTINGS[mode].noGakusei` (ふりがな): the 小6モード harness isn't applied, the cache object is shared between the two
   levels (`cacheBanks.gakusei.furi = cacheBanks.standard.furi`), and answers are saved as `standard`.
-- The proxy caps max_tokens at 1024 (`api/claude.js`). 小6モード's rewrite lives in `gakusei.js`, because the proxy uses it too.
+- The proxy (`api/claude.js`) allows only the three 5.5 model IDs, caps max_tokens at 4096 (言い回し needs room to think),
+  forwards `output_config.effort` (low/medium/high) and only the thinking-off shapes, and never forwards `temperature`. 小6モード's rewrite lives in `gakusei.js`, because the proxy uses it too.
 
 ## 漢字辞典 follow-up lookups
 

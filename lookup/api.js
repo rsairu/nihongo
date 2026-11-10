@@ -30,28 +30,39 @@ function getAccessCode(forcePrompt) {
 // プロキシ経由ではフラグだけ送り、サーバー側 (api/claude.js) が同じ gakusei.js でかける。
 const GakuseiHarness = typeof Gakusei === "object" && Gakusei ? Gakusei : null;
 
-function buildClaudeBody(prompt, maxTokens, temperature, model, wantGakusei) {
+// 5.5 世代は考える（thinking）のが既定。考えないモード（PROMPT_SETTINGS の thinking: false）は、モデルごとに切り方がちがう。
+// Opus 5.5 は切れない（null を返すので thinking は送らず、effort だけで量を決める）。
+function thinkingOffFor(model) {
+  if (/^claude-haiku-5-5/.test(model)) return { type: "disabled" };
+  if (/^claude-sonnet-5-5/.test(model)) return { type: "between_tools" };
+  return null;
+}
+
+// cfg は PROMPT_SETTINGS の1つ（model, maxTokens, effort, thinking）。temperature は送らない（5.5 世代は 400）。
+function buildClaudeBody(prompt, cfg, wantGakusei) {
+  const model = cfg.model || CLAUDE_MODEL;
   const base = {
-    model: model || CLAUDE_MODEL,
-    max_tokens: maxTokens,
-    temperature: temperature == null ? 0 : temperature,
+    model,
+    max_tokens: cfg.maxTokens,
     messages: [{ role: "user", content: prompt }]
   };
+  if (cfg.effort) base.output_config = { effort: cfg.effort };
+  const off = cfg.thinking ? null : thinkingOffFor(model);
+  if (off) base.thinking = off;
   if (useProxy()) return JSON.stringify(wantGakusei ? { ...base, gakusei_mode: true } : base);
   if (wantGakusei && GakuseiHarness) return JSON.stringify(GakuseiHarness.applyRequest(base, true));
   return JSON.stringify(base);
 }
 
-// prompts.js の PROMPT_SETTINGS（モデル・max_tokens・temperature）で送る。noGakusei のモードは小6モードでもハーネスなし。
+// prompts.js の PROMPT_SETTINGS（モデル・max_tokens・effort・thinking）で送る。noGakusei のモードは小6モードでもハーネスなし。
 function requestPrompt(kind, prompt, signal) {
-  const cfg = PROMPT_SETTINGS[kind];
-  return requestClaudeText(prompt, cfg.maxTokens, signal, cfg.temperature, cfg.model, Boolean(cfg.noGakusei));
+  return requestClaudeText(prompt, PROMPT_SETTINGS[kind], signal);
 }
 
-async function requestClaudeText(prompt, maxTokens, signal, temperature, model, noGakusei) {
+async function requestClaudeText(prompt, cfg, signal) {
   const direct = !useProxy();
-  const wantGakusei = gakuseiMode && !noGakusei;
-  const body = buildClaudeBody(prompt, maxTokens, temperature, model, wantGakusei);
+  const wantGakusei = gakuseiMode && !cfg.noGakusei;
+  const body = buildClaudeBody(prompt, cfg, wantGakusei);
   const send = (code) =>
     useProxy()
       ? fetch(PROXY_URL, { method: "POST", headers: { "content-type": "application/json", "x-access-code": code }, body, signal })
@@ -77,8 +88,12 @@ async function requestClaudeText(prompt, maxTokens, signal, temperature, model, 
   }
   if (direct && GakuseiHarness) data = GakuseiHarness.formatResponse(data, wantGakusei);
 
-  return (data.content || [])
+  // 考えたモデルの返事は thinking ブロックが先に来るので、text ブロックだけをつなぐ
+  const text = (data.content || [])
     .filter((b) => b.type === "text")
     .map((b) => b.text)
     .join("");
+  // 考えるのに max_tokens を使い切って本文が出なかったとき（PROMPT_SETTINGS の maxTokens が足りない）
+  if (!text.trim() && data.stop_reason === "max_tokens") throw new Error("max_tokens に届きました（考える分が足りません）");
+  return text;
 }

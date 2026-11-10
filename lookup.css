@@ -183,8 +183,13 @@ body.lookup-body {
   background: var(--card);
 }
 
-/* ふりがな: ほかのモードの2倍の高さ */
+/* ふりがな・言い回し: ほかのモードの2倍の高さ */
 .lookup-page[data-mode="furi"] #helperInput {
+  height: calc(2 * (1.2em + 26px));
+  border-radius: 18px;
+}
+
+.lookup-page[data-mode="iimawashi"] #helperInput {
   height: calc(2 * (1.2em + 26px));
   border-radius: 18px;
 }
@@ -247,6 +252,59 @@ body.lookup-body {
   font-size: 0.95rem;
 }
 
+/* 言い回し: 入力（文のこともある）は辞書の定義と同じくらい、判定・英語も大きめに */
+.lookup-page #helperIimawashiText {
+  font-size: 1.45rem;
+  line-height: 1.65;
+}
+
+.lookup-page #helperIimawashiVerdict {
+  margin-top: 12px;
+  gap: 8px 14px;
+}
+
+.lookup-page .iimawashi-badge {
+  padding: 3px 14px;
+  font-size: 1rem;
+}
+
+.lookup-page .iimawashi-sub {
+  font-size: 0.95rem;
+}
+
+.lookup-page .iimawashi-follow {
+  gap: 6px;
+  margin: 0 6px 0 8px;
+}
+
+.lookup-page .iimawashi-core-text {
+  font-size: 1.1rem;
+}
+
+.lookup-page #helperIimawashiNote {
+  margin-top: 12px;
+  font-size: 1.15rem;
+  line-height: 1.6;
+}
+
+.lookup-page #helperIimawashiEn {
+  margin-top: 10px;
+  font-size: 1rem;
+}
+
+.lookup-page .iimawashi-en-tag {
+  font-size: 0.85rem;
+}
+
+.lookup-page #helperIimawashiRelated {
+  margin-top: 16px;
+}
+
+.lookup-page button.iimawashi-related-chip {
+  padding: 6px 14px;
+  font-size: 1.1rem;
+}
+
 .lookup-page #helperGloss {
   margin-top: 8px;
   font-size: 1.1rem;
@@ -284,7 +342,8 @@ body.lookup-body {
 .lookup-page #helperGlossBtn,
 .lookup-page #helperEnBtn,
 .lookup-page #helperSentenceEnBtn,
-.lookup-page #helperSentenceRegenBtn {
+.lookup-page #helperSentenceRegenBtn,
+.lookup-page #helperIimawashiEnBtn {
   margin-top: 12px;
   padding: 6px 14px;
   font-size: 0.88rem;

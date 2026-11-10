@@ -18,7 +18,7 @@
 // POST { action: "delete", query, cmpKey? }
 //        → 204   removes the word from history and its saved answers, except shared 漢字辞典 rows (delete_lookup)
 
-const MODES = new Set(["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi"]);
+const MODES = new Set(["dict", "kanji", "sentence", "thes", "cmp", "jiten", "furi", "iimawashi"]);
 const LEVELS = new Set(["standard", "gakusei"]);
 const MAX_QUERY = 400; // ふりがなモードでは文をそのまま入れるので、語より長くてよい
 // entries の in.(…) は URL に入る。ふりがなの文は長いので、URL が長くなりすぎないよう何回かに分けて引く。

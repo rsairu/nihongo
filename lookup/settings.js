@@ -76,6 +76,7 @@ function setGakuseiMode(enabled, save) {
   jitenCache = bank.jiten;
   cmpCache = bank.cmp;
   furiCache = bank.furi;
+  iimawashiCache = bank.iimawashi;
   renderGakuseiBtn();
 
   if (helperEnAbort) helperEnAbort.abort();
