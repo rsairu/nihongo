@@ -258,6 +258,10 @@ body.lookup-body {
   line-height: 1.65;
 }
 
+.lookup-page #helperIimawashiText.has-ruby {
+  line-height: 2.1;
+}
+
 .lookup-page #helperIimawashiVerdict {
   margin-top: 12px;
   gap: 8px 14px;

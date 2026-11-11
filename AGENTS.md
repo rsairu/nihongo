@@ -90,6 +90,19 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
 - 辞書 has two English buttons under the definition. 訳語を表示 (`#helperGlossBtn`) shows `#helperGloss`, the English equivalent of the word itself (`entry.gloss`), on its own line under the reading in `.helper-reading-row`, in the reading's color and smaller (the button's text is that color too). 英訳を表示 (`#helperEnBtn`) shows `#helperEn`, the translation of the definition (`entry.en`).
   The gloss comes back with the 辞書 answer itself as the `訳:` line (parsed by `GLOSS_LINE_RE`), so there's no second request. Saved answers from before that line existed have no gloss: the first click fetches one with `buildGlossPrompt` (Haiku, `ensureHelperGloss`) and saves it like 英訳 does. `#helperGloss` stays outside `#helperKana`, so click-to-copy copies only the reading.
 - 辞書 with a kana-only query: the answer also has `表記:` (kanji spelling of the word that was defined; なし when it has none or only a very rare/archaic one) and `同音:` (up to 4 other common words with the same reading, in kanji). When several words share the reading, the prompt defines only the most common one, never mixing the others into ①②③. `parseDictResponse` keeps them as `entry.spelling` / `entry.homophones` only when Q has no kanji (`hasKanji`). `renderDictHeadword` shows the reading as 読み【表記】 (`#helperSpelling`, inside `.helper-headword` next to `#helperKana`) and the homophones as buttons in `#helperHomophones` that call `helperLookup(word, { mode: "dict" })`. 英訳 / 訳語 send `entry.spelling` as the word when it exists. The history page shows 読み【表記】 too (`dict.spelling` in the `summary=1` history rows). Answers saved before this have neither field.
+- 辞書の辞書形 (2026-11-11): the answer also has `見出し:` (dictionary form of the word defined) and `活用:` (school-grammar name of Q's form: 連用形, て形, 過去形 …).
+  When Q is inflected (疲れ果て, 美しく, 食べなかった) the prompt defines the dictionary form; 読み / 表記 / JA / 訳 are about 見出し. Words that are headwords themselves (例えば, 改めて, 疲れ) keep Q.
+  `parseDictResponse` keeps them as `entry.lemma` / `entry.inflection` only when 見出し differs from Q (`sameHeadword`). The cache, saved row and history stay keyed by what was typed (Q).
+  `renderDictHeadword` shows 読み【見出し】 (`dictHeadwordSpelling`: 表記 first, then 見出し unless it's kana equal to the reading), and `renderDictInflection` appends a `.helper-word-form` pill
+  (the form name, title 「疲れ果てる」の連用形で調べました) to `#helperWord`; `paintHelperItem` resets `#helperWord` to Q on every paint, so the pill never leaks into other modes.
+  英訳 / 訳語 send `dictDefinedWord(entry, query)` (表記 → 見出し → Q). The history page shows 読み【見出し】 too (`dict.lemma` in the `summary=1` rows).
+- 辞書の使い方ラベル (2026-11-11): register is no longer written as prose (くだけた言い方。). The prompt lists `USAGE_LABELS` (in `lookup/modes/dict.js`, sent through `usageLabelPromptList()`)
+  and the model puts them in JA as 〔口語〕: at the very start for the whole word, right after the number for one sense (②〔俗語〕…). Set: 新・侮蔑・卑語・俗語・口語・文章語・古風,
+  each with `aliases` the model tends to write instead (〔俗〕, 〔くだけた〕 …) and a `tone` for color (`.usage-badge[data-tone]` in `vocab_clicker.css`: new / bad / warn / plain).
+  `usageLineNodes` turns each line into [number, badges, text], moving known labels to just after ① (or the line start) wherever the model put them; unknown 〔…〕 stay text.
+  Badges are sorted by their order in `USAGE_LABELS` (a fixed ranking, like adjective order: 新 first, then the hurtful ones, then slang, then register, then age), so array order is display order.
+  〔新〕 is a label too (badge text 新用法, `inPrompt: false` because the prompt asks for it in its own rule). Line splitting (`splitSenses`, `NEW_USAGE_SPLIT_RE`) and `.def-new` still key off the raw 〔新〕 text before badges are made.
+  To add a label, add one row to `USAGE_LABELS` where it should rank. `buildEnOnlyPrompt` drops the labels from 英訳 (〔新〕 → "(newer usage)"); the history page strips all of them from its one-line preview.
 - New mode: add its builder and a `PROMPT_SETTINGS` entry to `prompts.js`. Put its parse / fetch / render code in a new `lookup/modes/<mode>.js`
   and add that `<script>` to both pages next to the other modes. Then add the mode to `HELPER_MODES` and the label maps, `createCacheBank`,
   `createHelperItem` / `modeState`, `cachedModeEntry` / `cacheModeEntry`, `paintHelperItem`, `runHelperFetch` (all in `lookup/core.js`),
@@ -103,10 +116,12 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
   the meaning (生物 → なまもの), shown as ほかの読み.
 - 言い回し (`iimawashi`, `buildIimawashiPrompt`, `parseIimawashiResponse`, Opus 5.5 at effort medium, maxTokens 4096 for thinking):
   for a word, phrase or sentence, judges whether it's an established expression, a normal way to say it, or the author's own wording,
-  and translates it. Labels: `判定:` (one of `IIMAWASHI_VERDICTS`: 定型 dictionary idiom / 慣用的 conventional figure used the usual way /
+  and translates it. Labels: `ルビ:` (same `{よみ}` form as ふりがな, read with `parseRubyLine`; kept as `entry.ruby` only when its text is exactly Q, since 核 is located by character offset), `判定:` (one of `IIMAWASHI_VERDICTS`: 定型 dictionary idiom / 慣用的 conventional figure used the usual way /
   普通 literal combination / 独自 author's own / 不自然 / 不明), `核:` (the part that matters), `解説:` (Japanese, plain text: no
   click-to-look-up on its kanji, since that grabs kanji runs, not words), `直訳:` and `訳:` (English), `関連:` (up to 4 related
   expressions as chips → 辞書). 慣用的 vs 普通 is "is there a conventional figurative piece" — keep that line clean in the prompt.
+  - Q is shown with furigana from `entry.ruby` (`renderIimawashiQuery`, `.has-ruby` makes the line taller). Answers saved before 2026-11-11 have no ruby and show plain text.
+    When 核's edge falls inside a kanji run that has a reading, the whole run goes into the mark so the reading isn't split.
   - 核 is highlighted in Q (`mark.iimawashi-core`). No lookup buttons on it (tried 2026-11-09, removed). When 核 isn't in Q verbatim
     (Q inflects it), 核 is shown as plain text on the 判定 line instead (`.iimawashi-core-text`).
   - English is hidden like 辞書's 英訳: one 英訳を表示 button (`#helperIimawashiEnBtn`) shows both 訳 and 直訳 (`#helperIimawashiEn`).

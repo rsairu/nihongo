@@ -1,4 +1,5 @@
 // 言い回しモード (iimawashi): 語・フレーズ・文が、決まった言い方か・ふつうに言うか・作者の独自の表現か。直訳と訳も。
+// 見出し（入力）の漢字には ルビ: でふりがなを付ける（2026-11-11）。
 // プロンプトは prompts.js の buildIimawashiPrompt（Opus で考えさせる）。
 
 const helperIimawashiBlock = document.getElementById("helperIimawashiBlock");
@@ -38,7 +39,16 @@ function sameEnglish(a, b) {
   return key(a) === key(b);
 }
 
-function parseIimawashiResponse(raw) {
+// ルビ: ふりがなモードと同じ形（Q に {よみ}）。parseRubyLine は lookup/modes/furi.js。
+// 核 に色を付けるときに入力の何文字目かで数えるので、本文が入力とまったく同じときだけ使う。
+function iimawashiRuby(rubyRaw, query) {
+  if (!rubyRaw || !query) return [];
+  const segs = parseRubyLine(rubyRaw);
+  if (!segs.some((s) => s.r)) return [];
+  return segs.map((s) => s.t).join("") === query ? segs : [];
+}
+
+function parseIimawashiResponse(raw, query) {
   const text = raw.trim().replace(/^```(?:\w+)?\n?|\n?```$/g, "").trim();
   const pick = (re) => {
     const m = text.match(re);
@@ -50,6 +60,7 @@ function parseIimawashiResponse(raw) {
   const literal = pick(/^\s*(?:直訳|literal)\s*[:：]\s*(.+)$/im);
   const en = pick(/^\s*(?:訳|英訳|translation|EN)\s*[:：]\s*(.+)$/im);
   const relatedRaw = pick(/^\s*(?:関連|related)\s*[:：]\s*(.+)$/im);
+  const rubyRaw = pick(/^\s*(?:ルビ|ruby)\s*[:：]\s*(.+)$/im);
   if (!verdictRaw && !note && !en) throw new Error("empty");
   const related = isNoneList(relatedRaw)
     ? []
@@ -59,7 +70,9 @@ function parseIimawashiResponse(raw) {
         .filter((w) => w && !isNoneList(w) && looksJapanese(w))
         .filter((w, i, list) => list.indexOf(w) === i)
         .slice(0, 4);
+  const ruby = iimawashiRuby(rubyRaw, query);
   return {
+    ...(ruby.length ? { ruby } : {}),
     verdict: normalizeIimawashiVerdict(verdictRaw),
     core: isNoneList(core) ? "" : core,
     note,
@@ -70,28 +83,56 @@ function parseIimawashiResponse(raw) {
 }
 
 async function fetchIimawashiEntry(query, signal) {
-  return parseIimawashiResponse(await requestPrompt("iimawashi", buildIimawashiPrompt(query), signal));
+  return parseIimawashiResponse(await requestPrompt("iimawashi", buildIimawashiPrompt(query), signal), query);
 }
 
-// 入力をそのまま大きく出し、核 に色を付ける。
+// 入力をそのまま大きく出し、漢字にふりがな（entry.ruby）、核 に色を付ける。
 // 核 が入力の中にない（活用している）ときは false を返し、呼び出し側が判定の行に 核 を出す。
+// ルビは保存済みの古い答えにはない（そのときは今までどおり文字だけ）。
+// 核 の端がルビの付いた漢字のかたまりの途中にあるときは、そのかたまりごと 核 に入れる（読みを切らない）。
 function renderIimawashiQuery(query, entry) {
   helperIimawashiText.replaceChildren();
+  const segs = entry.ruby && entry.ruby.length ? entry.ruby : [{ t: query }];
+  helperIimawashiText.classList.toggle("has-ruby", segs.some((s) => s.r));
   const core = entry.core;
   const at = core ? query.indexOf(core) : -1;
-  if (at < 0) {
-    helperIimawashiText.append(document.createTextNode(query));
-    return false;
+  const end = at < 0 ? -1 : at + core.length;
+  let mark = null;
+  const target = (inCore) => {
+    if (!inCore) return helperIimawashiText;
+    if (!mark) {
+      mark = document.createElement("mark");
+      mark.className = "iimawashi-core";
+      helperIimawashiText.append(mark);
+    }
+    return mark;
+  };
+  let pos = 0;
+  for (const s of segs) {
+    const from = pos;
+    const to = pos + s.t.length;
+    pos = to;
+    if (s.r) {
+      const ruby = document.createElement("ruby");
+      const rt = document.createElement("rt");
+      rt.textContent = s.r;
+      ruby.append(document.createTextNode(s.t), rt);
+      target(at >= 0 && from < end && to > at).append(ruby);
+      continue;
+    }
+    // ルビのない部分は 核 の前・中・後ろで切る
+    const cuts = [from, to];
+    if (at > from && at < to) cuts.push(at);
+    if (end > from && end < to) cuts.push(end);
+    cuts.sort((a, b) => a - b);
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const a = cuts[i];
+      const b = cuts[i + 1];
+      if (a === b) continue;
+      target(at >= 0 && a >= at && b <= end).append(document.createTextNode(s.t.slice(a - from, b - from)));
+    }
   }
-  const mark = document.createElement("mark");
-  mark.className = "iimawashi-core";
-  mark.textContent = core;
-  helperIimawashiText.append(
-    document.createTextNode(query.slice(0, at)),
-    mark,
-    document.createTextNode(query.slice(at + core.length))
-  );
-  return true;
+  return at >= 0;
 }
 
 function iimawashiHasEnglish(entry) {
@@ -118,6 +159,7 @@ function clearIimawashi() {
 }
 
 function renderIimawashiMessage(text) {
+  helperIimawashiText.classList.remove("has-ruby");
   helperIimawashiText.textContent = text;
   clearIimawashi();
 }

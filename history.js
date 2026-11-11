@@ -89,10 +89,13 @@
     word.title = item.query;
     const body = el("span", "history-body-text");
     const reading = (item.dict && item.dict.reading) || (item.context && item.context.reading) || "";
-    const meaning = (item.dict && item.dict.ja) || (item.context && item.context.meaning) || "";
+    // 使い方のラベル（〔新〕〔口語〕など。辞書ではバッジ）は一覧では外す。
+    const meaning = ((item.dict && item.dict.ja) || (item.context && item.context.meaning) || "")
+      .replace(/〔[^〔〕\s]{1,10}〕/g, "")
+      .trim();
     const suggestion = (item.dict && item.dict.suggestion) || "";
-    // かなで引いた語は 読み【表記】（辞書の 表記:）
-    const spelling = (item.dict && item.dict.spelling) || "";
+    // かなで引いた語は 読み【表記】（辞書の 表記:）、活用した形で引いた語は 読み【見出し】（辞書形）
+    const spelling = (item.dict && (item.dict.spelling || (item.dict.lemma !== item.dict.reading && item.dict.lemma))) || "";
     if (reading) body.append(el("span", "history-reading", spelling ? reading + "【" + spelling + "】" : reading));
     if (meaning) body.append(el("span", "history-meaning", meaning));
     else if (suggestion) body.append(el("span", "history-meaning history-suggestion", "もしかして：" + suggestion));

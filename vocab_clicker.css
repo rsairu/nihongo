@@ -1556,6 +1556,19 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
   line-height: 1.2;
 }
 
+/* 辞書: 活用した形で引いたとき、入力の横に形の名前（疲れ果て 連用形）。見出しは辞書形。 */
+.helper-word-form {
+  display: inline-block;
+  margin-left: 0.5em;
+  padding: 0 0.55em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.85em;
+  line-height: 1.5;
+  vertical-align: 0.05em;
+}
+
 /* ふりがな・言い回し: 入力そのものが見出しなので、上の小さい語は出さない */
 .lookup-box[data-mode="furi"] #helperWord {
   display: none;
@@ -1615,6 +1628,22 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
   font-size: 1.05rem;
   line-height: 1.7;
   overflow-wrap: anywhere;
+}
+
+/* 見出しの漢字にふりがな（ルビ: から）。ふりがなモードと同じ付け方で、色は言い回しの色。ルビがあるときは行を高く。 */
+#helperIimawashiText.has-ruby {
+  line-height: 2.1;
+}
+
+#helperIimawashiText ruby {
+  ruby-align: center;
+}
+
+#helperIimawashiText rt {
+  color: var(--iimawashi);
+  font-size: 0.5em;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 #helperIimawashiText mark.iimawashi-core {
@@ -1830,6 +1859,41 @@ button.homophone-btn:focus-visible {
 }
 
 .def-sense + .def-sense { margin-top: 0.3em; }
+
+/* 使い方のラベル（〔新〕〔口語〕〔俗語〕…）をバッジに。①②③ の行では番号のすぐ後ろ（lookup/modes/dict.js の USAGE_LABELS）。
+   tone: new 新しい用法 / bad 相手を傷つける・下品 / warn 俗 / plain ふつう。text-indent は .def-sense のぶら下げを受け継がないように 0。 */
+.usage-badge {
+  display: inline-block;
+  margin: 0 0.4em 0 0.1em;
+  padding: 0 0.5em;
+  border-radius: 999px;
+  background: #ebe6dc;
+  color: var(--muted);
+  font-size: 0.78em;
+  font-weight: 650;
+  line-height: 1.6;
+  text-indent: 0;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.usage-badge + .usage-badge { margin-left: 0; }
+
+.usage-badge[data-tone="new"] {
+  background: var(--selected-soft);
+  color: var(--selected);
+}
+
+.usage-badge[data-tone="warn"] {
+  background: var(--cmp-soft);
+  color: var(--cmp);
+}
+
+.usage-badge[data-tone="bad"] {
+  background: #f3dcdc;
+  color: var(--danger);
+}
 
 .helper-dict-actions {
   display: flex;

@@ -4,7 +4,7 @@
 // 文言は自由に変えてよい。ただし各プロンプトは「ラベル: 内容」の行で返させていて、
 // lookup/modes/*.js のパーサーがそのラベルで読む。ラベル名と行の形（｜ や ; の区切り）は変えないこと。
 // 各プロンプトの上に「解析: 関数名 / ラベル」を書いてある。
-// JITEN_MAX_WORDS と CMP_LETTERS は lookup/modes/jiten.js・cmp.js 側の定数（パーサーと共有）。
+// JITEN_MAX_WORDS と CMP_LETTERS は lookup/modes/jiten.js・cmp.js 側の定数、usageLabelPromptList は lookup/modes/dict.js（パーサーと共有）。
 
 const CLAUDE_MODEL = "claude-haiku-5-5";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-5-5";
@@ -20,7 +20,7 @@ const CLAUDE_MODEL_OPUS = "claude-opus-5-5";
 // effort: low | medium | high（考えない設定のモデルは high まで）。max_tokens の上限は Vercel のプロキシ側（api/claude.js）。
 // noGakusei: true のモードは小6モードのハーネスをかけない（lookup/api.js の requestPrompt / lookup/saved.js の persistModeEntry）。
 const PROMPT_SETTINGS = {
-  dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 520,  effort: "high", thinking: false }, // 辞書（定義）
+  dict:     { model: CLAUDE_MODEL_SONNET, maxTokens: 580,  effort: "high", thinking: false }, // 辞書（定義）
   en:       { model: CLAUDE_MODEL,        maxTokens: 260,  effort: "high", thinking: false }, // 辞書（英訳を表示）
   gloss:    { model: CLAUDE_MODEL,        maxTokens: 80,   effort: "high", thinking: false }, // 辞書（訳語を表示）: 訳 のない保存済みの答えだけ
   sentence: { model: CLAUDE_MODEL_SONNET, maxTokens: 340,  effort: "high", thinking: false }, // 例文
@@ -51,7 +51,7 @@ function buildSuggestionRules() {
 }
 
 // ── 辞書 ──────────────────────────────
-// 解析: parseDictResponse / 候補:, 読み:, 表記:, 同音:（、区切り）, JA:, 訳:
+// 解析: parseDictResponse / 候補:, 見出し:, 活用:, 読み:, 表記:, 同音:（、区切り）, JA:（〔口語〕などのラベル入り）, 訳:
 // 辞書: Sonnet で定義（JA）を作る。英訳は「英訳を表示」で fetchEnOnly（Haiku）が JA から訳す。
 // 2026-10-08: Haiku + 短い定義の指示で「口が減らない＝おしゃべり」のような字面どおりの誤訳が出たため変更。
 // 2026-10-25: 訳:（語そのものの英語の訳語。定義の訳ではない）を同じ返事に足した。出力が10〜20トークン増えるだけで、別リクエストはいらない。
@@ -60,22 +60,33 @@ function buildSuggestionRules() {
 // 表記:（定義した語の漢字。とても珍しい漢字なら なし）と 同音:（同じ読みのほかの語。最大4語）を足した。
 // 定義は いちばんよく指す1語だけ。アプリは 読み【表記】 と、同音語のボタン（押すとその漢字で辞書を引く）を出す。
 // Q に漢字があるときは どちらも なし（パーサーも捨てる）。
+// 2026-11-11: 活用した形（疲れ果て・美しく・食べなかった）で引くと、その形のまま定義して「〜の連用形」と JA に書いていたので、
+// 見出し:（辞書形。疲れ果て → 疲れ果てる）と 活用:（Q の形の名前。連用形 など）を足した。定義・読み・表記・訳は 見出し の語について。
+// アプリは 読み【見出し】 を見出しにして、上の小さい Q の横に 活用 を出す。例えば・改めて のような見出し語は Q のまま。
+// 2026-11-11: 「くだけた言い方。」のような使い方の説明を文で書かせず、決まったラベル（USAGE_LABELS、lookup/modes/dict.js）を
+// 〔口語〕のように JA に入れさせる。アプリはバッジにして、①②③ があればその番号のすぐ後ろに出す。
 function buildFreeLookupPrompt(query) {
   return [
     "Define this Japanese word or phrase the way a careful monolingual dictionary (大辞林・明鏡国語辞典) would.",
     ...buildSuggestionRules(),
+    "- Dictionary form: if Q is an inflected form of a verb, い-adjective or な-adjective (疲れ果て, 食べさせられた, 美しく, 静かに, 行かなかった), define its dictionary form (疲れ果てる, 食べる, 美しい, 静か) and put that in 見出し. For a phrase whose last word is inflected (口が減らなかった), 見出し is the whole phrase in dictionary form (口が減らない). If Q is already a dictionary headword, including nouns, adverbs and set expressions that come from a verb form (例えば, 改めて, 思わず, 疲れ, 晴れ), 見出し is Q unchanged.",
+    "- 活用: only when 見出し differs from Q, the short school-grammar name of Q's form (連用形, て形, 過去形, 否定形, 受身形, 使役形, 可能形, 仮定形, 意志形; combine with ・ when needed, e.g. 使役受身・過去形). Otherwise なし. Never mention the inflection in JA.",
+    "- 読み, 表記, JA and 訳 are all about 見出し, not about Q's inflected form.",
     "- If Q is written without kanji and several common words share its reading (はし: 橋・箸・端), define only the one Q most often means on its own. Put the others in 同音, never in the numbered senses.",
     "- Idiom (慣用句), proverb or set phrase: give its established idiomatic meaning. Never build the meaning from the literal parts.",
-    "- Convey any connotation or register the word carries (disapproving, ironic, humble, praising, colloquial, literary, etc.).",
+    "- Usage labels: when the word, or one of its senses, clearly belongs to one of these, mark it with the label in 〔〕 exactly as written: " + usageLabelPromptList() + ". Put a label that applies to every sense at the very start of JA; put a label for one sense right after its number (②〔俗語〕…). Most words need none. Use only these labels (and 〔新〕 above), and never also describe that register in words (no くだけた言い方 / 俗な言い方 / 文語的な表現 sentences).",
+    "- Convey any other connotation the word carries (disapproving, ironic, humble, praising, etc.) briefly in words.",
     "- If the word you define has more than one distinct sense in common use, number them ①②③, most standard first.",
     "- Give the standard meaning first. If a newer or alternate usage is now widespread, add it after, marked 〔新〕. If dictionaries treat that usage as a mistake, say so (誤用とされる).",
     "- If you are not sure of a meaning, say so briefly instead of guessing.",
     "- 訳 is the closest English equivalent of the word you defined, the way a 和英 dictionary gives it: a word or short phrase, not a definition or explanation. For an idiom, give the natural English equivalent expression, never a literal rendering. If the senses need different English words, give up to 3 separated by \"; \", in the same order as the senses.",
     "- 表記: only when Q has no kanji. The standard kanji spelling of the word you defined (くちがへらない → 口が減らない, きれい → 綺麗), even if the word is usually written in kana. Write なし if Q contains kanji, if the word has no kanji spelling, or if its kanji spelling is very rare or archaic (とても → なし, not 迚も).",
     "- 同音: only when Q has no kanji. Other common words with exactly the same reading, each in its usual kanji spelling, most common first, at most 4, separated by 、. The same verb written with different kanji for different meanings counts (あう: 会う → 合う、遭う). Leave out alternate spellings of the word you defined, rare words and proper nouns. なし if there are none.",
-    "Output these 6 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
+    "Output these 8 lines in this order and nothing else (only the 候補 line when 候補 is not なし):",
     "候補: <most likely intended word, or なし>",
-    "読み: <hiragana; katakana if that is normal>",
+    "見出し: <dictionary form of the word you define (Q itself if Q is not inflected)>",
+    "活用: <name of Q's inflected form, or なし>",
+    "読み: <hiragana reading of 見出し; katakana if that is normal>",
     "表記: <kanji spelling of the word you defined, or なし>",
     "同音: <other words with the same reading, or なし>",
     "JA: <Japanese definition, all on ONE line>",
@@ -105,7 +116,7 @@ function buildEnOnlyPrompt(word, reading, ja) {
   return [
     "Translate this Japanese dictionary definition into a short English gloss.",
     "Translate only what the definition says. Do not add a literal word-by-word reading of the headword.",
-    "Keep sense numbers (①②) only if the definition has them. Render 〔新〕 as \"(newer usage)\".",
+    "Keep sense numbers (①②) only if the definition has them. Render 〔新〕 as \"(newer usage)\". Drop the other labels in 〔〕 (〔口語〕〔俗語〕 etc.); the app shows them separately.",
     "Output ONLY the English gloss on one line. No quotes or labels.",
     "",
     "Word: " + word,
@@ -276,7 +287,8 @@ function buildKanjiPrompt(query, context) {
 
 // ── 言い回し ────────────────────────────
 // 語・フレーズ・文が「決まった言い方か、ふつうに言うか、作者の独自の表現か」の判定と、訳。
-// 解析: parseIimawashiResponse / 判定:（IIMAWASHI_VERDICTS のどれか）, 核:, 解説:, 直訳:, 訳:, 関連:（、区切り）
+// 解析: parseIimawashiResponse / ルビ:（ふりがなの ルビ: と同じ形。parseRubyLine）, 判定:（IIMAWASHI_VERDICTS のどれか）, 核:, 解説:, 直訳:, 訳:, 関連:（、区切り）
+// 2026-11-11: 見出し（入力）の漢字にふりがなを付けるため ルビ: を足した。別リクエストにせず同じ返事に入れる（数十トークン）。
 // 判定の分け方（2026-11-09）:
 //   定型   辞書の見出しになる慣用句・ことわざ・決まり文句（猫の手も借りたい）
 //   慣用的 見出しではないが、決まった比喩の部分を型どおりに使っていて、ふつうに言う（雲の上の話 ← 雲の上）
@@ -302,7 +314,8 @@ function buildIimawashiPrompt(query) {
     "   不明: you genuinely can't tell. Prefer 不明 over a confident guess.",
     "Don't call something 定型 or 慣用的 just because it sounds literary. Build no meaning from the literal parts of a real idiom.",
     "",
-    "Output these 6 lines in this order and nothing else:",
+    "Output these 7 lines in this order and nothing else:",
+    "ルビ: <Q copied exactly, character for character, with its hiragana reading in {} right after each run of kanji or digits, read as in this context (金は金持ちに懐く → 金{かね}は金持{かねも}ちに懐{なつ}く). Kana, katakana and punctuation get no {}.>",
     "判定: <定型 | 慣用的 | 普通 | 独自 | 不自然 | 不明>",
     "核: <the key expression, copied from Q (dictionary form if Q inflects it)>",
     "解説: <1-3 short Japanese sentences, all on ONE line: what it means here, how it's built (which idiom or figure it rests on), register, and why you chose that 判定>",

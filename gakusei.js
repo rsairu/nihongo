@@ -27,7 +27,8 @@
     "- synonym/antonym headwords and words listed as having the same reading (must be real words in their real spelling; only their short meanings become simpler);",
     "- in a kanji dictionary entry: the kanji, its on/kun readings, and the listed words containing it (real, common words; only their short meanings become simpler);",
     "- in example sentences, the target word itself, written exactly as given;",
-    "- numbers, scores, and fixed category values such as kana / either / kanji.",
+    "- numbers, scores, and fixed category values such as kana / either / kanji;",
+    "- usage labels in 〔〕 (〔口語〕〔俗語〕〔文章語〕…), dictionary forms (見出し), names of inflected forms (活用), and ルビ lines.",
     "",
     "Follow the output format in the user message exactly: the same line labels, the same number of lines, the same separators. No furigana in parentheses, no extra lines or commentary."
   ].join("\n");

@@ -54,14 +54,15 @@ function parseDictResponse(raw, query) {
   }
   let en = enMatch ? enMatch[1].trim() : "";
   if (!reading || !ja) {
-    // 候補: なし・表記:・同音:・訳: の行は位置で読むときに数えない（読み・JA がずれないように）
+    // 候補: なし・見出し:・活用:・表記:・同音:・訳: の行は位置で読むときに数えない（読み・JA がずれないように）
     const lines = text
       .split("\n")
       .map((l) => l.trim())
       .filter(
         (l) =>
           l && !SUGGESTION_LINE_RE.test(l) && !GLOSS_LINE_RE.test(l) &&
-          !SPELLING_LINE_RE.test(l) && !HOMOPHONE_LINE_RE.test(l)
+          !SPELLING_LINE_RE.test(l) && !HOMOPHONE_LINE_RE.test(l) &&
+          !LEMMA_LINE_RE.test(l) && !INFLECTION_LINE_RE.test(l)
       );
     if (!reading && lines[0]) {
       reading = lines[0]
@@ -80,6 +81,15 @@ function parseDictResponse(raw, query) {
   en = stripWrappingQuotes(en);
   const gloss = glossMatch ? cleanGloss(glossMatch[1]) : "";
   const entry = gloss ? { reading, ja, en, gloss } : { reading, ja, en };
+  // 見出し（辞書形）は Q が活用しているときだけ残す（疲れ果て → 疲れ果てる）。活用 はそのときだけ。
+  const lemmaMatch = text.match(LEMMA_LINE_RE);
+  const lemma = lemmaMatch ? cleanLemma(lemmaMatch[1], query) : "";
+  if (lemma) {
+    entry.lemma = lemma;
+    const formMatch = text.match(INFLECTION_LINE_RE);
+    const inflection = formMatch ? cleanInflection(formMatch[1]) : "";
+    if (inflection) entry.inflection = inflection;
+  }
   // 表記・同音語は、かなだけで引いたときだけ（漢字があれば、もうその語に決まっている）
   if (!hasKanji(query)) {
     const spellingMatch = text.match(SPELLING_LINE_RE);
@@ -97,6 +107,29 @@ const SPELLING_LINE_RE = /^\s*(?:表記|spelling)\s*[:：]\s*(.*)$/im;
 
 const HOMOPHONE_LINE_RE = /^\s*(?:同音語?|homophones?)\s*[:：]\s*(.*)$/im;
 const HOMOPHONE_MAX = 4;
+
+// 見出し（辞書形）と 活用（Q の形の名前）。prompts.js の buildFreeLookupPrompt（2026-11-11）。
+// 疲れ果て で引くと 見出し: 疲れ果てる / 活用: 連用形。見出しは 読み【見出し】、活用 は上の小さい Q の横に出す。
+const LEMMA_LINE_RE = /^\s*(?:見出し(?:語)?|辞書形|lemma)\s*[:：]\s*(.*)$/im;
+
+const INFLECTION_LINE_RE = /^\s*(?:活用(?:形)?|inflection)\s*[:：]\s*(.*)$/im;
+
+function sameHeadword(a, b) {
+  const key = (s) => String(s || "").normalize("NFKC").replace(/\s+/g, "");
+  return key(a) === key(b);
+}
+
+function cleanLemma(raw, query) {
+  const s = cleanSpellingWord(raw);
+  if (!s || isNoneList(s) || !looksJapanese(s) || sameHeadword(s, query)) return "";
+  return s;
+}
+
+function cleanInflection(raw) {
+  const s = stripWrappingQuotes(String(raw || "").trim()).replace(/[。．.]+$/, "").trim();
+  if (!s || isNoneList(s) || s.length > 16) return "";
+  return s;
+}
 
 function hasKanji(text) {
   return Array.from(String(text || "")).some(isKanjiChar);
@@ -197,10 +230,38 @@ function clearHelperGloss() {
 
 // 読み【表記】: かなで引いたとき、定義した語の漢字を読みの後ろに（国語辞典の見出しの形）。
 // 同音語: 同じ読みのほかの語。押すとその漢字の表記を辞書で引く（helperLookup を通すので待てモードも効く）。
+// 見出し（辞書形）: 活用した形で引いたときは 読み【見出し】。かなで引いたときは 表記 が先（見出しの漢字）。
+// 見出しがかなだけで読みと同じ（して → する）なら【】は出さない。
+function dictHeadwordSpelling(entry) {
+  if (!entry) return "";
+  if (entry.spelling) return entry.spelling;
+  if (entry.lemma && !sameHeadword(entry.lemma, entry.reading)) return entry.lemma;
+  return "";
+}
+
+// 英訳・訳語に渡す語: 定義した語（表記 → 見出し → 入力の順）
+function dictDefinedWord(entry, query) {
+  return (entry && (entry.spelling || entry.lemma)) || query;
+}
+
+// 上の小さい Q（#helperWord）の横に、活用した形で引いたことを出す（疲れ果て 連用形）。
+// #helperWord は paintHelperItem が毎回 Q だけに戻すので、ここでは足すだけ。
+function renderDictInflection(entry) {
+  const old = helperWord.querySelector(".helper-word-form");
+  if (old) old.remove();
+  if (!entry || !entry.lemma) return;
+  const tag = document.createElement("span");
+  tag.className = "helper-word-form";
+  tag.textContent = entry.inflection || "活用形";
+  tag.title = "「" + entry.lemma + "」の" + (entry.inflection || "活用した形") + "で調べました";
+  helperWord.append(tag);
+}
+
 function renderDictHeadword(entry) {
-  const spelling = (entry && entry.spelling) || "";
+  const spelling = dictHeadwordSpelling(entry);
   helperSpelling.textContent = spelling ? "【" + spelling + "】" : "";
-  helperSpelling.title = spelling ? "かなで引いた語の漢字表記" : "";
+  helperSpelling.title = !spelling ? "" : entry.spelling ? "かなで引いた語の漢字表記" : "辞書形（見出し）";
+  renderDictInflection(entry);
   const homophones = (entry && Array.isArray(entry.homophones) && entry.homophones) || [];
   if (!homophones.length) {
     helperHomophones.replaceChildren();
@@ -262,9 +323,10 @@ const SENSE_MARK_FIRST = 0x2460; // ①
 const SENSE_MARK_LAST = 0x2473;  // ⑳
 const SENSE_TRIM_RE = /^[\s、,;；/／]+|[\s、,;；/／]+$/g;
 
-// 〔新〕（新しい用法）も1行に分ける。英訳では buildEnOnlyPrompt が "(newer usage)" に置き換える。
+// 〔新〕（新しい用法）も1行に分ける（表示は 新用法 のバッジ）。英訳では buildEnOnlyPrompt が "(newer usage)" に置き換える。
 // 「③〔新〕…」のように番号のすぐ後ろにあるときは切らない（番号の行のまま）。
-const NEW_USAGE_SPLIT_RE = /(?<![①-⑳]\s*)(?=〔新〕|\(newer usage\))/i;
+// 番号と 〔新〕 の間に使い方のラベルがあるとき（②〔俗語〕〔新〕…）や、行頭のラベルの後ろでも切らない。
+const NEW_USAGE_SPLIT_RE = /(?<!(?:^|[①-⑳])(?:\s*〔[^〔〕\s]{1,10}〕)*\s*)(?=〔新〕|\(newer usage\))/i;
 
 const NEW_USAGE_START_RE = /^(?:〔新〕|\(newer usage\))/i;
 
@@ -300,7 +362,7 @@ function renderSenseLines(container, text) {
   const lines = splitSenses(text);
   const hasNewUsage = lines.length > 1 && lines.some(isNewUsageLine);
   if (lines.filter(isSenseLine).length < 2 && !hasNewUsage) {
-    container.textContent = text || "";
+    container.replaceChildren(...usageLineNodes(text || ""));
     return;
   }
   container.replaceChildren(
@@ -311,10 +373,74 @@ function renderSenseLines(container, text) {
         : isNewUsageLine(line)
           ? "def-sense def-new"
           : "def-sense def-lead";
-      row.textContent = line;
+      row.append(...usageLineNodes(line));
       return row;
     })
   );
+}
+
+// ── 使い方のラベル（〔新〕〔口語〕〔俗語〕…）────────────
+// 辞書の JA に 〔ラベル〕 で入ってくる（prompts.js の buildFreeLookupPrompt が usageLabelPromptList を使う）。
+// 表示はバッジ。①②③ のある行では番号のすぐ後ろ、ない行では定義の前に寄せる（文中・文末に書いてきても）。
+// 並び順はこの配列の順（形容詞の BAGS のような決まった順）: 新 → 人を傷つける・下品 → 俗 → 話し言葉・書き言葉 → 古さ。
+// まずはよく使うものだけ。足すときはここに1行（key がプロンプトに出る名前、text があればバッジはそちら、aliases はモデルが書きがちな別名）。
+// tone は色: new（新しい用法）/ bad（相手を傷つける・下品）/ warn（俗）/ plain（ふつう）。vocab_clicker.css の .usage-badge[data-tone]。
+// 〔新〕 はプロンプトでは別の指示（新しい用法・誤用とされる）で出させるので、usageLabelPromptList には入れない（inPrompt: false）。
+// 行を分けるのも 〔新〕 の文字で（splitSenses）、バッジにするのはその後。
+const USAGE_LABELS = [
+  { key: "新", text: "新用法", en: "newer usage", tone: "new", inPrompt: false, aliases: ["新しい用法", "新用法"] },
+  { key: "侮蔑", en: "derogatory / derisive", tone: "bad", desc: "derogatory or derisive", aliases: ["蔑", "軽蔑", "侮蔑語", "蔑称", "侮蔑的"] },
+  { key: "卑語", en: "vulgar / rude", tone: "bad", desc: "vulgar or rude", aliases: ["卑", "卑俗", "下品", "卑語的"] },
+  { key: "俗語", en: "slang", tone: "warn", desc: "slang", aliases: ["俗", "俗な言い方", "スラング"] },
+  { key: "口語", en: "colloquial", tone: "plain", desc: "casual spoken language (くだけた言い方)", aliases: ["くだけた言い方", "くだけた表現", "くだけた", "話し言葉", "口"] },
+  { key: "文章語", en: "literary / formal written", tone: "plain", desc: "literary or formal written language", aliases: ["文", "文語", "書き言葉", "雅語", "雅", "文章"] },
+  { key: "古風", en: "dated / archaic", tone: "plain", desc: "old-fashioned or archaic", aliases: ["古", "古語", "古め", "古い言い方"] }
+];
+
+const USAGE_TAG_RE = /〔([^〔〕\s]{1,10})〕/g;
+
+// 行頭の番号（①）は、バッジより前に残す
+const USAGE_PREFIX_RE = /^(?:[①-⑳]\s*)?/;
+
+function usageLabelPromptList() {
+  return USAGE_LABELS.filter((l) => l.inPrompt !== false)
+    .map((l) => "〔" + l.key + "〕 " + l.desc)
+    .join(", ");
+}
+
+function findUsageLabel(name) {
+  const s = String(name || "").trim();
+  return USAGE_LABELS.find((l) => l.key === s || l.aliases.includes(s)) || null;
+}
+
+function usageBadge(label) {
+  const badge = document.createElement("span");
+  badge.className = "usage-badge";
+  badge.dataset.usage = label.key;
+  badge.dataset.tone = label.tone;
+  badge.textContent = label.text || label.key;
+  badge.title = label.en;
+  return badge;
+}
+
+// 1行の定義を [番号, バッジ…（USAGE_LABELS の順）, 本文] のノードにする。知らない 〔…〕 は文字のまま。
+function usageLineNodes(line) {
+  const labels = [];
+  const rest = String(line || "").replace(USAGE_TAG_RE, (m, name) => {
+    const label = findUsageLabel(name);
+    if (!label) return m;
+    if (!labels.includes(label)) labels.push(label);
+    return "";
+  });
+  if (!labels.length) return [document.createTextNode(rest)];
+  labels.sort((a, b) => USAGE_LABELS.indexOf(a) - USAGE_LABELS.indexOf(b));
+  const prefix = rest.match(USAGE_PREFIX_RE)[0];
+  const body = rest.slice(prefix.length).replace(/^[\s、。]+/, "");
+  const nodes = [];
+  if (prefix) nodes.push(document.createTextNode(prefix));
+  nodes.push(...labels.map(usageBadge));
+  if (body) nodes.push(document.createTextNode(body));
+  return nodes;
 }
 
 function renderDictEntry(entry, enShown, glossShown) {
@@ -369,8 +495,8 @@ async function ensureHelperEnglish() {
   helperEn.classList.add("visible");
 
   try {
-    // かなで引いた語は、定義した語の漢字（表記）で渡す（同音の別の語と取りちがえないように）
-    const en = await fetchEnOnly(sourceEntry.spelling || query, sourceEntry.reading, sourceEntry.ja, controller.signal);
+    // かなで引いた語は定義した語の漢字（表記）、活用した形で引いた語は辞書形（見出し）で渡す
+    const en = await fetchEnOnly(dictDefinedWord(sourceEntry, query), sourceEntry.reading, sourceEntry.ja, controller.signal);
     if (requestId !== helperEnRequestId) return "";
     const next = { ...latestDictEntry(query, sourceEntry), en };
     dictCache[dictCacheKey(query, "")] = next;
@@ -427,7 +553,7 @@ async function ensureHelperGloss() {
   helperGloss.classList.add("visible");
 
   try {
-    const gloss = await fetchGlossOnly(sourceEntry.spelling || query, sourceEntry.reading, sourceEntry.ja, controller.signal);
+    const gloss = await fetchGlossOnly(dictDefinedWord(sourceEntry, query), sourceEntry.reading, sourceEntry.ja, controller.signal);
     if (requestId !== helperGlossRequestId) return "";
     const next = { ...latestDictEntry(query, sourceEntry), gloss };
     dictCache[dictCacheKey(query, "")] = next;

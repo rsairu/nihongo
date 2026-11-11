@@ -165,7 +165,7 @@
         for (const item of items) {
           const e =
             (map[entKey("standard", "dict", item.query)] || map[entKey("gakusei", "dict", item.query)] || {}).entry;
-          if (e) item.dict = { reading: e.reading || "", spelling: e.spelling || "", ja: e.ja || "", suggestion: e.suggestion || "" };
+          if (e) item.dict = { reading: e.reading || "", spelling: e.spelling || "", lemma: e.lemma || "", ja: e.ja || "", suggestion: e.suggestion || "" };
         }
       }
       return { items, total: all.length };
