@@ -956,7 +956,6 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
 #handwritingDraftLookupBtn.reading-wait {
   background: linear-gradient(90deg, #c4bdb1 var(--reading-left, 100%), #ddd7cd var(--reading-left, 100%));
   color: #5f594f;
-  cursor: not-allowed;
   filter: none;
 }
 
@@ -1000,6 +999,164 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
   }
   .settings-btn svg {
     transition: none;
+  }
+}
+
+/* 待てモードの「あとで」: お休み中に入力した語の列（lookup/pool.js）。履歴タブ（色つきの実線）と見分けられるよう、砂色の点線 */
+#helperPool {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 8px;
+  border: 1px dashed #cdbf9f;
+  border-radius: 12px;
+  background: #faf5e6;
+  flex-shrink: 0;
+}
+
+#helperPool[hidden],
+#helperPool [hidden] {
+  display: none;
+}
+
+.pool-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #8a7a55;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: default;
+}
+
+#helperPoolList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pool-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px dashed #b9a67c;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.8rem;
+}
+
+.pool-chip .pool-word,
+.pool-chip .pool-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.pool-chip .pool-word {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 3px 2px 3px 10px;
+  border-radius: 999px 0 0 999px;
+}
+
+.pool-word-label {
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pool-chip .pool-remove {
+  padding: 3px 8px 3px 4px;
+  border-radius: 0 999px 999px 0;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.pool-chip .pool-remove:hover,
+.pool-chip .pool-remove:focus-visible {
+  color: var(--danger);
+}
+
+/* お休み中はまだ調べられない */
+#helperPool.is-waiting .pool-chip {
+  color: var(--muted);
+  background: transparent;
+}
+
+#helperPool.is-waiting .pool-word {
+  cursor: default;
+}
+
+#helperPool:not(.is-waiting) .pool-chip:hover,
+#helperPool:not(.is-waiting) .pool-chip:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* おすすめの1語 */
+.pool-chip.is-pick,
+#helperPool:not(.is-waiting) .pool-chip.is-pick:hover {
+  border: 1px solid #c9962b;
+  background: #fde9b0;
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 0 0 0 2px rgba(201, 150, 43, 0.25);
+}
+
+.pool-chip.is-pick .pool-word::before {
+  content: "★";
+  margin-right: 4px;
+  color: #b07a12;
+}
+
+.pool-pick-btn {
+  padding: 3px 10px;
+  border: 1px solid #c9962b;
+  border-radius: 999px;
+  background: #fff8e1;
+  color: #7a5608;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.pool-pick-btn:hover:not(:disabled),
+.pool-pick-btn:focus-visible {
+  background: #fde9b0;
+}
+
+.pool-pick-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.pool-note {
+  color: var(--danger);
+  font-size: 0.75rem;
+}
+
+.pool-added {
+  animation: pool-added 0.5s ease;
+}
+
+@keyframes pool-added {
+  0% { transform: scale(0.85); background: #fde9b0; }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pool-added {
+    animation: none;
   }
 }
 

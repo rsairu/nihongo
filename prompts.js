@@ -33,8 +33,26 @@ const PROMPT_SETTINGS = {
   furi:     { model: CLAUDE_MODEL_SONNET, maxTokens: 1300, effort: "high", thinking: false, noGakusei: true },
   // 言い回し: 「ふつうに言うか」の判定は知識と判断が要るので Opus で考えさせる（Opus 5.5 は考えるのを切れない）。
   // 返事は 150〜300 トークンほど。残りは考える分。medium で足りないとき（判定がぶれる）は high にして max_tokens も増やす。
-  iimawashi: { model: CLAUDE_MODEL_OPUS,  maxTokens: 4096, effort: "medium", thinking: true }
+  iimawashi: { model: CLAUDE_MODEL_OPUS,  maxTokens: 4096, effort: "medium", thinking: true },
+  // 待てモードの「あとで」から1語選ぶ（lookup/pool.js）。返事は1行だけ。Opus 5.5 は考えるのを切れないので effort は low、
+  // max_tokens は考える分。noGakusei: 語を選ぶだけで説明は返らないので、小6モードでもハーネスをかけない。
+  pool:      { model: CLAUDE_MODEL_OPUS,  maxTokens: 2048, effort: "low", thinking: true, noGakusei: true }
 };
+
+// ── 待てモードの「あとで」: いま1語だけ調べるならどれか ────────────
+// 解析: parsePoolPick（lookup/pool.js）/ 選:（下の一覧の番号）
+// わざと薄いプロンプト: 語の一覧と「調べる価値」の基準だけ。理由は返させない（ピルに印を付けるだけなので）。
+function buildPoolPickPrompt(words) {
+  return [
+    "A learner of Japanese (upper-intermediate; reads native novels and manga) met the words below while reading and has not looked them up. They can look up only ONE of them now.",
+    "Pick the one with the best return on that single lookup: a word that is common and will keep coming up in other texts, and whose meaning is hard to work out from its kanji or from context. Rare, one-off, or easily guessed words return the least.",
+    "",
+    ...words.map((w, i) => `${i + 1}. ${w}`),
+    "",
+    "Reply with exactly one line and nothing else:",
+    "選: <the number of the word>"
+  ].join("\n");
+}
 
 // ── もしかして（辞書・漢字表記で共通）────────────
 // 解析: parseSuggestion / 候補:（なし のときは空。どのラベルより先に読む）

@@ -47,6 +47,7 @@ The lookup panel is split into these files, loaded in this order on both pages:
 | `lookup/saved.js` | Saving and restoring through `store.js`: `persistModeEntry`, `storeKeysFor`, `applyStoredEntries` (+ `repairStoredEntry` / `repairWordList` for old saved answers), `hydrateFromStore`, `initLookupStore`, `?q=` deep links. |
 | `lookup/modes/<mode>.js` | One file per mode (`dict`, `kanji`, `sentence`, `thes`, `cmp`, `jiten`, `furi`, `iimawashi`): that mode's elements, state, `parse…Response`, `fetch…`, `render…` and its own buttons. 辞書 also has 英訳 / 訳語; 例文 has 作り直し, its 英訳 and highlight-to-look-up; 漢字辞典 has the follow-up picker. |
 | `lookup/handwriting.js` | The 手書き toggle, canvas, Google recognition, candidates and draft. |
+| `lookup/pool.js` | 待てモード's あとで pool: words typed during the cooldown, the Opus pick (`pickPoolWord`), the pills. Loaded before `settings.js`, which calls into it. |
 | `lookup/settings.js` | The ⚙ menu: 文字の大きさ, アイコンだけ表示, 小6モード (`setGakuseiMode`, including the cache bank swap), 待てモード (`readingBlocked`, cooldown). |
 | `lookup/start.js` | Runs last: `renderHelperModes()` and `initLookupStore()`. |
 | `vocab_clicker.js` | Clicker only (`vocab_clicker.html` only, after `lookup/`): vocab-list parsing, bubbles, selection and CSV, `known_words.json`, dragging a bubble out, highlight-to-look-up inside bubbles. |
@@ -161,10 +162,19 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
 - The gear shows state while closed: a ⏳ badge bottom-left (`.settings-badge-reading`, via `html.reading-mode`) while 待てモード is on, a 🎓 badge bottom-right (`.settings-badge`, via `html.gakusei-mode`) while 小6モード is on. The menu labels carry the same emoji, gray while off.
 - アイコンだけ表示 (`#modeLabelsToggle`, key `vocab-clicker-mode-labels-hidden`): adds `html.mode-labels-hidden`, which visually hides the `.mode-label` under each mode tile on lookup.html (still read by screen readers; the tiles carry `title`s) and enlarges the icons, mainly for phones. Styles are in `lookup.css`. A tiny inline script in lookup.html's `<head>` applies the class before first paint. The clicker's tabs are text-only, so its `#modeLabelsRow` is in the markup (shared IDs) but `hidden`.
 - 待てモード (formerly 読書モード; ⏳; a play on the dog command 待て, since Pila fetches the words). Internal names (`readingMode`, `#readingModeToggle`, `reading-*` classes, `vocab-clicker-reading-*` keys) were kept so saved settings carry over.
-  (`#readingModeToggle`, `#readingSecondsInput`, default 180 s): after a lookup, new lookups are blocked for that many seconds and the 調べる buttons (`#helperBtn`, `#handwritingDraftLookupBtn`) go gray with a countdown.
-- The gate is `readingBlocked()` at the top of `helperLookup`, so every entry point (button, Enter, bubbles, drag, 類義語/漢字辞典 clicks, handwriting) is covered. **New lookup entry points must go through `helperLookup`**. Anything that clears user input before calling it (handwriting candidates, the draft) checks `readingBlocked()` first so the input isn't lost.
+  (`#readingModeToggle`, `#readingSecondsInput`, default 180 s): after a lookup, new lookups are blocked for that many seconds and the 調べる buttons (`#helperBtn`, `#handwritingDraftLookupBtn`) go gray with a countdown and read あとで.
+- The gate is `readingBlocked()` at the top of `helperLookup`, so every entry point (bubbles, drag, 類義語/漢字辞典 clicks; the button, Enter and handwriting pool the word first, see あとで below) is covered. **New lookup entry points must go through `helperLookup`**. Anything that clears user input before calling it (handwriting candidates, the draft) checks `readingBlocked()` first so the input isn't lost.
 - Not blocked: reopening history tabs (`selectHelperHistory`), 英訳, 例文を作り直す, 小6モード refetches, and `?q=` deep links from the history page (`skipReadingCooldown`).
 - Settings and the cooldown end time are in localStorage and sync between tabs, so a reload doesn't reset the cooldown.
+- あとで pool (2026-11-12, `lookup/pool.js`, `#helperPool` between `#helperForm` and `#helperHistory` on both pages): during the cooldown the 調べる buttons read あとで (still gray, with the countdown) and
+  **typed input and handwriting are pooled instead of blocked**: the form's submit handler, `chooseHandwritingCandidate` and `lookupHandwritingDraft` call `addPoolWord` before `helperLookup`. Every other entry point
+  (chips, bubbles, drags, もしかして, the pool pills themselves) still hits `readingBlocked()` in `helperLookup`. Max `POOL_MAX` (12) words, no duplicates; a full pool keeps the input.
+  - Pills (`.pool-chip`: sand-colored, dashed, so they don't read as history tabs) have a word button and an ×. While waiting they're muted (`#helperPool.is-waiting`); afterwards clicking one calls `helperLookup(word)` in the selected mode.
+  - おすすめを選ぶ (`#helperPoolPickBtn`, shown once the cooldown is over, the pool has 2+ words and there's no pick yet) sends `buildPoolPickPrompt(words)` (`PROMPT_SETTINGS.pool`: Opus 5.5, effort low, `noGakusei`) and reads `選: <number>` with `parsePoolPick`.
+    The pick only marks its pill (`.is-pick`, ★); nothing is looked up until the pill is clicked, and any pill can be clicked. One word alone is the pick with no request. Adding a word or removing the pick clears it.
+  - ⚙ おすすめを自動で選ぶ (`#poolAutoToggle` in `#poolAutoRow`, key `vocab-clicker-reading-pool-auto`, default off): `maybeAutoPickPool` runs the pick when the cooldown ends (`syncPoolWaiting`, called from `renderReadingCooldown`), only in a visible tab.
+  - Every round starts empty: `helperLookup` calls `clearPoolForRound` right before `startReadingCooldown`, so looking anything up drops the whole pool. If that lookup ends in もしかして, `releaseReadingCooldown` → `restorePoolRound` puts the other words back.
+  - Words and the pick live in localStorage (`vocab-clicker-reading-pool`) and sync between tabs, like the cooldown. Not written to Supabase.
 
 ## Other
 

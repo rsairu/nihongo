@@ -32,6 +32,7 @@ const readingSecondsRow = document.getElementById("readingSecondsRow");
 const modeLabelsToggle = document.getElementById("modeLabelsToggle");
 
 // 待てモード (⚙ メニュー): 調べたあと readingSeconds 秒は新しく調べられない（調べるボタンがグレーになる）。
+// 休み中に入力した語は「あとで」にたまる（lookup/pool.js）。
 // 辞書に頼らず読み続けるため。履歴タブを開き直す・英訳・例文の作り直しは止めない。
 let readingMode = false;
 
@@ -318,27 +319,31 @@ function releaseReadingCooldown(itemId, mode) {
   readingSpan = 0;
   saveReadingUntil();
   renderReadingCooldown();
+  restorePoolRound(); // 調べ始めたときに捨てた「あとで」の語を戻す
 }
 
-// 調べるボタン（入力欄の横と手書きの下書き）をグレーにして、残り秒数とゲージを出す
+// 調べるボタン（入力欄の横と手書きの下書き）をグレーにして、残り秒数とゲージを出す。
+// 休み中のボタンは「あとで」になり、押すと入力した語を「あとで」（lookup/pool.js）に入れる。
 function renderReadingCooldown() {
   const left = readingCooldownLeft();
   const waiting = left > 0;
+  syncPoolWaiting(waiting);
   const secs = Math.ceil(left / 1000);
   const pct = waiting && readingSpan > 0 ? Math.min(100, (left / readingSpan) * 100) : 0;
   for (const btn of [helperBtn, handwritingDraftLookupBtn]) {
     if (!btn) continue;
     if (!("baseTitle" in btn.dataset)) btn.dataset.baseTitle = btn.getAttribute("title") || "";
+    if (!("baseText" in btn.dataset)) btn.dataset.baseText = btn.textContent;
     btn.classList.toggle("reading-wait", waiting);
+    const text = waiting ? "あとで" : btn.dataset.baseText;
+    if (btn.textContent !== text) btn.textContent = text;
     if (waiting) {
       btn.dataset.wait = String(secs);
       btn.style.setProperty("--reading-left", pct.toFixed(1) + "%");
-      btn.setAttribute("aria-disabled", "true");
-      btn.title = `待てモード: あと ${secs} 秒で調べられます`;
+      btn.title = `待てモード: あと ${secs} 秒で調べられます。押すと「あとで」に入れておけます`;
     } else {
       delete btn.dataset.wait;
       btn.style.removeProperty("--reading-left");
-      btn.removeAttribute("aria-disabled");
       if (btn.dataset.baseTitle) btn.title = btn.dataset.baseTitle;
       else btn.removeAttribute("title");
     }
@@ -357,6 +362,7 @@ function renderReadingSettings() {
   if (readingModeToggle) readingModeToggle.checked = readingMode;
   if (readingSecondsInput && document.activeElement !== readingSecondsInput) readingSecondsInput.value = String(readingSeconds);
   if (readingSecondsRow) readingSecondsRow.classList.toggle("is-off", !readingMode);
+  if (poolAutoRow) poolAutoRow.classList.toggle("is-off", !readingMode);
   renderSettingsBtn();
 }
 

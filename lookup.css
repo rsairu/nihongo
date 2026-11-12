@@ -214,6 +214,29 @@ body.lookup-body {
   margin-top: 14px;
 }
 
+.lookup-page #helperPool {
+  margin-top: 14px;
+  padding: 8px 10px;
+  gap: 8px;
+}
+
+.lookup-page .pool-label {
+  font-size: 0.82rem;
+}
+
+.lookup-page .pool-chip,
+.lookup-page .pool-pick-btn {
+  font-size: 0.88rem;
+}
+
+.lookup-page .pool-chip .pool-word {
+  padding: 4px 2px 4px 12px;
+}
+
+.lookup-page .pool-chip .pool-remove {
+  padding: 4px 10px 4px 5px;
+}
+
 .lookup-page .helper-tab {
   max-width: 240px;
   padding: 4px 12px;

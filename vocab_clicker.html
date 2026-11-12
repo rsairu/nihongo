@@ -42,6 +42,10 @@
           <span class="settings-label">お休みの時間</span>
           <span class="settings-num"><input id="readingSecondsInput" type="number" min="1" max="3600" step="1" value="180" inputmode="numeric" />秒</span>
         </label>
+        <label id="poolAutoRow" class="settings-row" for="poolAutoToggle">
+          <span class="settings-label"><span>おすすめを自動で選ぶ</span><span class="settings-hint">お休みが終わったら、「あとで」に入れた語から、いちばん調べる価値のある1語を Opus が選びます</span></span>
+          <input id="poolAutoToggle" class="switch" type="checkbox" role="switch" />
+        </label>
       </div>
     </div>
   </header>
@@ -76,6 +80,12 @@
         </span>
         <button id="helperBtn" type="submit">調べる</button>
       </form>
+      <div id="helperPool" hidden>
+        <span id="helperPoolLabel" class="pool-label"><span aria-hidden="true">⏳</span>あとで</span>
+        <div id="helperPoolList" role="list" aria-label="あとで調べる語"></div>
+        <button id="helperPoolPickBtn" class="pool-pick-btn" type="button" title="いま1語だけ調べるならどれがいちばん役に立つかを Opus が選びます" hidden>おすすめを選ぶ</button>
+        <span id="helperPoolNote" class="pool-note" role="status" hidden></span>
+      </div>
       <div id="helperHistory">
         <button id="helperScrollLeft" class="helper-scroll" type="button" aria-label="前の検索履歴">&lt;</button>
         <div id="helperTabs" role="tablist" aria-label="最近の検索"></div>
@@ -210,6 +220,7 @@
       <span><kbd>履歴</kbd>調べた語と答えは保存され、次に開いたときもタブに戻ります。タブの最後の「すべての履歴」で一覧へ</span>
       <span><kbd>⚙ 文字の大きさ</kbd>A− / A+ で文字を小さく・大きく。真ん中の % を押すと100%に戻ります</span>
       <span><kbd>⚙ 待てモード</kbd>オンにすると、調べたあと設定した秒数（初期は180秒）だけ「調べる」がお休みになります。すぐに調べず、文脈から考える間をつくって、調べるペースを落とします</span>
+      <span><kbd>あとで</kbd>待てモードのお休み中は「調べる」が「あとで」になり、入力した語（手書きも）は調べずに ⏳ あとで の列にたまります（12語まで。× で消す）。お休みが終わったら「おすすめを選ぶ」で、いま1語だけ調べるならどれがいちばん役に立つかを Opus が選び、★ が付きます（⚙ おすすめを自動で選ぶ をオンにすると押さなくても選びます）。調べ方のタブを選んでから語を押すと調べます。どれを押してもよく、調べると残りの語は消えます</span>
     </div>
     <p class="lede">「known_words.json を開く」でファイルを選ぶと、解析のたびにそのファイルを読み直し、完全一致する単語をバブルから除きます。</p>
     <form method="dialog">
@@ -235,6 +246,7 @@
   <script src="lookup/modes/furi.js"></script>
   <script src="lookup/modes/iimawashi.js"></script>
   <script src="lookup/handwriting.js"></script>
+  <script src="lookup/pool.js"></script>
   <script src="lookup/settings.js"></script>
   <script src="lookup/start.js"></script>
   <script src="vocab_clicker.js"></script>

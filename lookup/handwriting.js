@@ -175,8 +175,11 @@ function handwritingLookupLabel() {
 }
 
 function chooseHandwritingCandidate(text) {
-  // 休み中は書いた字を消さずに残す（下書きへの追加はできる）
-  if (!handwritingComposing && readingBlocked()) return;
+  // 休み中は調べずに「あとで」へ入れる（下書きへの追加はできる）。いっぱいで入らなければ書いた字を残す
+  if (!handwritingComposing && readingCooldownLeft() > 0) {
+    if (addPoolWord(text)) clearHandwriting();
+    return;
+  }
   clearHandwriting();
   if (handwritingComposing) {
     handwritingDraftParts.push(text);
@@ -209,12 +212,18 @@ function setHandwritingComposing(on) {
 }
 
 function lookupHandwritingDraft() {
-  if (readingBlocked()) return; // 休み中は下書きを消さない
   // 書きかけの文字がある場合は、いまの第1候補も下書きに含めてから調べる
   const pending = handwritingCandidates.querySelector(".handwriting-candidate");
-  if (pending && handwritingStrokes.length) handwritingDraftParts.push(pending.textContent);
-  const draft = handwritingDraftParts.join("");
+  const pendingText = pending && handwritingStrokes.length ? pending.textContent : "";
+  const draft = handwritingDraftParts.join("") + pendingText;
   if (!draft) return;
+  // 休み中は調べずに「あとで」へ入れる。いっぱいで入らなければ下書きを消さない
+  if (readingCooldownLeft() > 0) {
+    if (!addPoolWord(draft)) return;
+    clearHandwriting();
+    setHandwritingComposing(false);
+    return;
+  }
   clearHandwriting();
   setHandwritingComposing(false);
   helperLookup(draft, { mode: handwritingLookupMode(draft) });

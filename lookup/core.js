@@ -518,7 +518,8 @@ function helperLookup(queryOverride, options) {
   const opts = options || {};
   const query = stripLineBreaks(queryOverride != null ? String(queryOverride) : helperInput.value).trim();
   if (!query) return;
-  // 待てモードの休み中は、どこから呼ばれても（ボタン・Enter・バブル・ドラッグ・類義語・手書き）調べない
+  // 待てモードの休み中は、どこから呼ばれても（バブル・ドラッグ・類義語・「あとで」の語）調べない。
+  // 入力欄（ボタン・Enter）と手書きだけは、ここに来る前に「あとで」へ入れる（submit / lookup/handwriting.js）
   if (!opts.skipReadingCooldown && readingBlocked()) return;
   if (HELPER_MODES.includes(opts.mode)) helperMode = opts.mode;
   handwritingOpen = false;
@@ -541,7 +542,11 @@ function helperLookup(queryOverride, options) {
   helperActiveId = item.id;
   helperInput.value = query;
   // 休みは答えより先に始める（保存済みの もしかして はすぐ出て、そこで取り消されるので）
-  if (!opts.skipReadingCooldown) startReadingCooldown({ itemId: item.id, mode: helperMode });
+  if (!opts.skipReadingCooldown) {
+    // 「あとで」は毎回からっぽから: 調べた語も、選ばなかった語も消す
+    clearPoolForRound(query);
+    startReadingCooldown({ itemId: item.id, mode: helperMode });
+  }
   paintHelperItem(item);
   runHelperFetch(item, helperMode, { record });
 }
@@ -660,6 +665,12 @@ lookupBox.addEventListener("animationend", (e) => {
 
 helperForm.addEventListener("submit", (e) => {
   e.preventDefault();
+  // 待てモードの休み中に入力した語は、調べずに「あとで」（lookup/pool.js）へ入れる
+  const typed = stripLineBreaks(helperInput.value).trim();
+  if (typed && readingCooldownLeft() > 0) {
+    if (addPoolWord(typed)) helperInput.value = "";
+    return;
+  }
   helperLookup();
 });
 
