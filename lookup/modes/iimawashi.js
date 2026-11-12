@@ -20,6 +20,23 @@ const IIMAWASHI_VERDICTS = [
   { key: "不明", sub: "判断できない" }
 ];
 
+// 判定バッジにマウスを乗せる（タップする）と出す物差し。今の判定だけ色をはっきり、ほかは薄く。
+// 不自然 は判定が 不自然 のときだけ下に足す。不明 は物差しを出さない。
+const IIMAWASHI_SCALE = ["定型", "慣用的", "普通", "独自"];
+
+function iimawashiScaleFor(verdictKey) {
+  if (verdictKey === "不明") return [];
+  return verdictKey === "不自然" ? [...IIMAWASHI_SCALE, "不自然"] : IIMAWASHI_SCALE;
+}
+
+function makeIimawashiBadge(key) {
+  const badge = document.createElement("span");
+  badge.className = "iimawashi-badge";
+  badge.dataset.verdict = key;
+  badge.textContent = key;
+  return badge;
+}
+
 let iimawashiEntry = null;
 let iimawashiEnShown = false;
 
@@ -181,14 +198,28 @@ function renderIimawashiEntry(entry, query, enShown) {
   const coreShown = renderIimawashiQuery(query, entry);
 
   const verdict = IIMAWASHI_VERDICTS.find((v) => v.key === entry.verdict) || IIMAWASHI_VERDICTS[IIMAWASHI_VERDICTS.length - 1];
-  const badge = document.createElement("span");
-  badge.className = "iimawashi-badge";
-  badge.dataset.verdict = verdict.key;
-  badge.textContent = verdict.key;
+  const badgeWrap = document.createElement("span");
+  badgeWrap.className = "iimawashi-badge-wrap";
+  badgeWrap.append(makeIimawashiBadge(verdict.key));
+  const scaleKeys = iimawashiScaleFor(verdict.key);
+  if (scaleKeys.length) {
+    // tabindex でタップ・キーボードでも開く（:focus-within）
+    badgeWrap.tabIndex = 0;
+    badgeWrap.setAttribute("aria-label", "判定 " + verdict.key + "（" + scaleKeys.join(" → ") + "）");
+    const scale = document.createElement("span");
+    scale.className = "iimawashi-scale";
+    scale.setAttribute("aria-hidden", "true");
+    for (const key of scaleKeys) {
+      const step = makeIimawashiBadge(key);
+      if (key === verdict.key) step.classList.add("current");
+      scale.append(step);
+    }
+    badgeWrap.append(scale);
+  }
   const sub = document.createElement("span");
   sub.className = "iimawashi-sub";
   sub.textContent = verdict.sub;
-  helperIimawashiVerdict.append(badge, sub);
+  helperIimawashiVerdict.append(badgeWrap, sub);
   // 核 が入力の中に見つからなかった（活用している）ときは、判定の行に 核 を出す
   if (entry.core && !coreShown) {
     const core = document.createElement("span");

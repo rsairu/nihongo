@@ -117,7 +117,9 @@ These are plain `<script>` tags, not modules, so every file's top-level `const` 
 - 言い回し (`iimawashi`, `buildIimawashiPrompt`, `parseIimawashiResponse`, Opus 5.5 at effort medium, maxTokens 4096 for thinking):
   for a word, phrase or sentence, judges whether it's an established expression, a normal way to say it, or the author's own wording,
   and translates it. Labels: `ルビ:` (same `{よみ}` form as ふりがな, read with `parseRubyLine`; kept as `entry.ruby` only when its text is exactly Q, since 核 is located by character offset), `判定:` (one of `IIMAWASHI_VERDICTS`: 定型 dictionary idiom / 慣用的 conventional figure used the usual way /
-  普通 literal combination / 独自 author's own / 不自然 / 不明), `核:` (the part that matters), `解説:` (Japanese, plain text: no
+  普通 literal combination / 独自 author's own / 不自然 / 不明; hovering or tapping/focusing the badge (`.iimawashi-badge-wrap`, tabindex 0)
+  shows `.iimawashi-scale` under it: the `IIMAWASHI_SCALE` steps 定型 → 慣用的 → 普通 → 独自 as badges, the verdict in full color and the rest faded;
+  不自然 is appended only when it's the verdict, 不明 gets no scale), `核:` (the part that matters), `解説:` (Japanese, plain text: no
   click-to-look-up on its kanji, since that grabs kanji runs, not words), `直訳:` and `訳:` (English), `関連:` (up to 4 related
   expressions as chips → 辞書). 慣用的 vs 普通 is "is there a conventional figurative piece" — keep that line clean in the prompt.
   - Q is shown with furigana from `entry.ruby` (`renderIimawashiQuery`, `.has-ruby` makes the line taller). Answers saved before 2026-11-11 have no ruby and show plain text.

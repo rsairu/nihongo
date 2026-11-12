@@ -1683,6 +1683,59 @@ body.dragging-word .helper-mode[data-mode="iimawashi"] {
   border: 1px dashed var(--muted);
 }
 
+/* 判定の物差し: バッジにマウスを乗せる・タップすると、定型 → 独自 の並びをバッジの下に出す。
+   今の判定だけはっきりした色、ほかは薄く。 */
+.iimawashi-badge-wrap {
+  position: relative;
+  display: inline-flex;
+  border-radius: 999px;
+  outline: none;
+}
+
+.iimawashi-badge-wrap[tabindex] { cursor: help; }
+
+.iimawashi-badge-wrap:focus-visible {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--iimawashi);
+}
+
+.iimawashi-scale {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+}
+
+.iimawashi-badge-wrap:hover .iimawashi-scale,
+.iimawashi-badge-wrap:focus-within .iimawashi-scale {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.12s ease 0.08s, visibility 0s;
+}
+
+.iimawashi-scale .iimawashi-badge {
+  text-align: center;
+  opacity: 0.28;
+  filter: saturate(0.5);
+}
+
+.iimawashi-scale .iimawashi-badge.current {
+  opacity: 1;
+  filter: none;
+}
+
 .iimawashi-sub {
   color: var(--muted);
   font-size: 0.8rem;
